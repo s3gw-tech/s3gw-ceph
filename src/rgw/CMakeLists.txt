@@ -224,7 +224,8 @@ if(WITH_RADOSGW_SIMPLEFILE)
     driver/simplefile/user.cc
     driver/simplefile/zone.cc
     driver/simplefile/sfs_bucket.cc
-    driver/simplefile/sfs_user.cc)
+    driver/simplefile/sfs_user.cc
+    driver/simplefile/sfs_paths.cc)
 endif()
 if(WITH_RADOSGW_MOTR)
   list(APPEND librgw_common_srcs driver/motr/rgw_sal_motr.cc)
