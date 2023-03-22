@@ -112,6 +112,7 @@ public:
   void init_tracepoints();
   void init_notification_endpoints();
   void init_lua();
+  void init_s3gw_telemetry();
 
   bool have_http() {
     return have_http_frontend;

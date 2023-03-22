@@ -15,6 +15,7 @@
 
 #include <boost/intrusive/list.hpp>
 #include <memory>
+#include "global/global_context.h"
 #include "global/global_init.h"
 #include "global/signal_handler.h"
 #include "common/config.h"
@@ -30,6 +31,8 @@
 #include "rgw_common.h"
 #include "rgw_sal.h"
 #include "rgw_sal_config.h"
+#include "rgw_s3gw_telemetry.h"
+#include "rgw_sal_rados.h"
 #include "rgw_period_pusher.h"
 #include "rgw_realm_reloader.h"
 #include "rgw_rest.h"
@@ -45,6 +48,7 @@
 #include "rgw_rest_realm.h"
 #include "rgw_rest_ratelimit.h"
 #include "rgw_rest_zero.h"
+#include "rgw_status_page_telemetry.h"
 #include "rgw_swift_auth.h"
 #include "rgw_log.h"
 #include "rgw_lib.h"
@@ -490,6 +494,10 @@ int rgw::AppMain::init_frontends2(RGWLib* rgwlib)
           cct->get_perfcounters_collection()
         )
       );
+      if (env.s3gw_telemetry) {
+	stat->register_status_page(
+	    std::make_unique<TelemetryStatusPage>(cct, *env.s3gw_telemetry));
+      }
       auto driver = env.driver;
       if (driver && driver->get_name() == "sfs") {
         auto sfs = dynamic_cast<rgw::sal::SFStore*>(driver);
@@ -607,6 +615,17 @@ void rgw::AppMain::init_lua()
   }
 } /* init_lua */
 
+void rgw::AppMain::init_s3gw_telemetry()
+{
+  rgw::sal::Driver* driver = env.driver;
+  if (driver->get_name() == "sfs") { 
+    rgw::sal::SFStore* sfs = static_cast<rgw::sal::SFStore*>(env.driver);
+    env.s3gw_telemetry.reset(new S3GWTelemetry(g_ceph_context, sfs));
+    env.s3gw_telemetry->start();
+  }
+} /* init_s3gw_telemetry */
+
+
 void rgw::AppMain::shutdown(std::function<void(void)> finalize_async_signals)
 {
   if (env.driver->get_name() == "rados") {
@@ -654,4 +673,5 @@ void rgw::AppMain::shutdown(std::function<void(void)> finalize_async_signals)
 #endif
   rgw_perf_stop(g_ceph_context);
   ratelimiter.reset(); // deletes--ensure this happens before we destruct
+  env.s3gw_telemetry->stop();
 } /* AppMain::shutdown */
