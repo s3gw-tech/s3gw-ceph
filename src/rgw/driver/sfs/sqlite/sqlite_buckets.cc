@@ -185,4 +185,36 @@ std::optional<DBDeletedObjectItems> SQLiteBuckets::delete_bucket_transact(
   return retry.run();
 }
 
+const std::optional<SQLiteBuckets::Stats> SQLiteBuckets::get_stats(
+    const std::string& bucket_id
+) const {
+  auto storage = conn->get_storage();
+  std::optional<SQLiteBuckets::Stats> stats;
+
+  auto res = storage.select(
+      columns(
+          count(&DBVersionedObject::object_id), sum(&DBVersionedObject::size)
+      ),
+      inner_join<DBObject>(
+          on(is_equal(&DBObject::uuid, &DBVersionedObject::object_id))
+      ),
+      where(
+          is_equal(&DBObject::bucket_id, bucket_id) and
+          is_equal(&DBVersionedObject::object_state, ObjectState::COMMITTED)
+      )
+  );
+
+  if (res.size() > 0) {
+    ceph_assert(res.size() == 1);
+    stats = SQLiteBuckets::Stats();
+    stats->obj_count = std::get<0>(res[0]);
+    // We get a unique_ptr for SUM(), likely because of the underlying type of 'size'.
+    // Therefore we need to check whether it's a nullptr or not.
+    auto size = std::get<1>(res[0]).get();
+    stats->size = (size ? *size : 0);
+  }
+
+  return stats;
+}
+
 }  // namespace rgw::sal::sfs::sqlite

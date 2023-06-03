@@ -599,9 +599,36 @@ int SFSBucket::sync_user_stats(
 ) {
   return 0;
 }
-int SFSBucket::update_container_stats(const DoutPrefixProvider* /*dpp*/) {
+
+int SFSBucket::update_container_stats(const DoutPrefixProvider* dpp) {
+  lsfs_dout(dpp, 10) << fmt::format(
+                            "update bucket {} (id {}) stats", get_name(),
+                            get_bucket_id()
+                        )
+                     << dendl;
+  sfs::sqlite::SQLiteBuckets bucketdb(store->db_conn);
+  auto stats = bucketdb.get_stats(get_bucket_id());
+
+  if (!stats.has_value()) {
+    lsfs_dout(dpp, 10) << fmt::format(
+                              "unable to obtain stats for bucket {} (id {}) -- "
+                              "no such bucket!",
+                              get_name(), get_bucket_id()
+                          )
+                       << dendl;
+    return -ERR_NO_SUCH_BUCKET;
+  }
+
+  lsfs_dout(dpp, 10) << fmt::format(
+                            "bucket {} stats: size: {}, obj_cnt: {}",
+                            get_name(), stats->size, stats->obj_count
+                        )
+                     << dendl;
+  ent.size = ent.size_rounded = stats->size;
+  ent.count = stats->obj_count;
   return 0;
 }
+
 int SFSBucket::check_bucket_shards(const DoutPrefixProvider* dpp) {
   ldpp_dout(dpp, 10) << __func__ << ": TODO" << dendl;
   return -ENOTSUP;
