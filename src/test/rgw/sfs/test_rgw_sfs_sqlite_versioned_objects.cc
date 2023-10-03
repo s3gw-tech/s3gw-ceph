@@ -1723,7 +1723,7 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestRemovedDeletedVersionsLimitMax) {
   EXPECT_TRUE(bucket_fully_deleted);
 }
 
-TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerAlwaysOnTop) {
+TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerNotAlwaysOnTop) {
   // The scenario we test here could be recreated in a race condition situation
   // in which a delete_marker had a lower commit time than an alive version
   auto ceph_context = std::make_shared<CephContext>(CEPH_ENTITY_TYPE_CLIENT);
@@ -1743,6 +1743,7 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerAlwaysOnTop) {
   auto version = createTestVersionedObject(1, TEST_OBJECT_ID, "1");
   version.object_state = rgw::sal::sfs::ObjectState::COMMITTED;
   version.version_type = rgw::sal::sfs::VersionType::REGULAR;
+  version.commit_time = ceph::real_clock::now();
   EXPECT_EQ(1, db_versioned_objects->insert_versioned_object(version));
   version.version_id = "test_version_id_2";
   version.commit_time = ceph::real_clock::now();
@@ -1756,6 +1757,7 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerAlwaysOnTop) {
   auto delete_marker_id = "delete_marker_id";
   uuid_d uuid;
   uuid.parse(TEST_OBJECT_ID.c_str());
+
   bool added;
   auto id = db_versioned_objects->add_delete_marker_transact(
       uuid, delete_marker_id, added
@@ -1783,10 +1785,53 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerAlwaysOnTop) {
   delete_marker->commit_time = epoch_commit_time;
   db_versioned_objects->store_versioned_object(*delete_marker);
 
-  // run the same query and we should still get the deleted marker
+  // run the same query and we should get the previous version
+  last_version = db_versioned_objects->get_committed_versioned_object(
+      TEST_BUCKET, TEST_OBJECT_ID, ""
+  );
+  ASSERT_TRUE(last_version.has_value());
+  EXPECT_EQ((*last_version).id, 3);
+
+  // another delete marker
+  delete_marker_id = "delete_marker_id_2";
+  id = db_versioned_objects->add_delete_marker_transact(
+      uuid, delete_marker_id, added
+  );
+  EXPECT_TRUE(added);
+
+  // check that the new delete marker is the last version now
   last_version = db_versioned_objects->get_committed_versioned_object(
       TEST_BUCKET, TEST_OBJECT_ID, ""
   );
   ASSERT_TRUE(last_version.has_value());
   EXPECT_EQ((*last_version).id, id);
+
+  // list versions (returned ordered by commit time descending)
+  auto versions = db_versioned_objects->get_versioned_objects(uuid);
+  ASSERT_EQ(5, versions.size());
+
+  // first one is the delete marker that we just added
+  EXPECT_EQ(
+      rgw::sal::sfs::VersionType::DELETE_MARKER, versions[0].version_type
+  );
+  EXPECT_EQ(5, versions[0].id);
+
+  // now versions 3, 2 and 1...
+  EXPECT_NE(
+      rgw::sal::sfs::VersionType::DELETE_MARKER, versions[1].version_type
+  );
+  EXPECT_EQ(3, versions[1].id);
+  EXPECT_NE(
+      rgw::sal::sfs::VersionType::DELETE_MARKER, versions[2].version_type
+  );
+  EXPECT_EQ(2, versions[2].id);
+  EXPECT_NE(
+      rgw::sal::sfs::VersionType::DELETE_MARKER, versions[3].version_type
+  );
+  EXPECT_EQ(1, versions[3].id);
+  // last version is the delete marker that we hacked the commit time
+  EXPECT_EQ(
+      rgw::sal::sfs::VersionType::DELETE_MARKER, versions[4].version_type
+  );
+  EXPECT_EQ(4, versions[4].id);
 }
