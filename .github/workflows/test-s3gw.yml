@@ -149,16 +149,6 @@ jobs:
             -v ${GITHUB_WORKSPACE}/s3tr-out:/out \
             -v ${GITHUB_WORKSPACE}/ceph:/ceph:ro \
             ghcr.io/aquarist-labs/s3tr:latest \
-            analyze new-successes \
-              --known-good-file \
-                /ceph/qa/rgw/store/sfs/tests/fixtures/s3-tests.txt \
-              /out/s3tr.json
-
-          docker run --rm \
-            -v ${GITHUB_WORKSPACE}/s3tr-out:/out \
-            -v ${GITHUB_WORKSPACE}/ceph:/ceph:ro \
-            ghcr.io/aquarist-labs/s3tr:latest \
-            analyze new-failures \
-              --known-good-file \
-                /ceph/qa/rgw/store/sfs/tests/fixtures/s3-tests.txt \
-              /out/s3tr.json
+            analyze summary \
+              /out/s3tr.json \
+              /ceph/qa/rgw/store/sfs/tests/fixtures/s3tr_excuses.csv
