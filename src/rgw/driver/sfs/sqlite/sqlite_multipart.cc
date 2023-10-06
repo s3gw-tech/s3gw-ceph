@@ -359,20 +359,6 @@ static int _mark_complete(
   return storage.changes();
 }
 
-bool SQLiteMultipart::mark_complete(const std::string& upload_id) const {
-  auto storage = conn->get_storage();
-  auto committed = storage.transaction([&]() mutable {
-    auto num_complete = _mark_complete(storage, upload_id);
-    if (num_complete == 0) {
-      return false;
-    }
-    ceph_assert(num_complete == 1);
-    return true;
-  });
-
-  return committed;
-}
-
 bool SQLiteMultipart::mark_complete(
     const std::string& upload_id, bool* duplicate
 ) const {
