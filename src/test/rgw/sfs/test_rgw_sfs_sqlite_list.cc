@@ -491,6 +491,58 @@ TEST_F(TestSFSList, versions__delete_marker_latest) {
   EXPECT_FALSE(results[1].is_current());
 }
 
+TEST_F(TestSFSList, versions__delete_marker_is_not_latest) {
+  const auto uut = make_uut();
+  std::vector<rgw_bucket_dir_entry> results;
+
+  const auto obj = create_test_object("testbucket", "test1/a");
+  SQLiteObjects os(dbconn);
+  SQLiteVersionedObjects vos(dbconn);
+  os.store_object(obj);
+  auto vo1 = create_test_versionedobject(
+      obj.uuid, gen_rand_alphanumeric(cct.get(), 23)
+  );
+  vo1.commit_time = ceph::real_time(std::chrono::seconds(1));
+  vo1.object_state = rgw::sal::sfs::ObjectState::COMMITTED;
+  vo1.version_type = rgw::sal::sfs::VersionType::REGULAR;
+  auto dm = create_test_versionedobject(
+      obj.uuid, gen_rand_alphanumeric(cct.get(), 23)
+  );
+  dm.commit_time = vo1.commit_time + std::chrono::seconds(1);
+  dm.object_state = rgw::sal::sfs::ObjectState::COMMITTED;
+  dm.version_type = rgw::sal::sfs::VersionType::DELETE_MARKER;
+
+  vos.insert_versioned_object(vo1);
+  vos.insert_versioned_object(dm);
+
+  ASSERT_TRUE(uut.versions("testbucket", "", "", 1000, results));
+  ASSERT_EQ(results.size(), 2);
+  EXPECT_TRUE(results[0].is_delete_marker());
+  EXPECT_TRUE(results[0].is_current());
+  EXPECT_FALSE(results[1].is_delete_marker());
+  EXPECT_FALSE(results[1].is_current());
+
+  // now we add another version on top of the delete marker
+  auto new_version = create_test_versionedobject(
+      obj.uuid, gen_rand_alphanumeric(cct.get(), 23)
+  );
+  new_version.object_state = rgw::sal::sfs::ObjectState::COMMITTED;
+  new_version.version_type = rgw::sal::sfs::VersionType::REGULAR;
+  new_version.commit_time = dm.commit_time + std::chrono::seconds(1);
+  vos.insert_versioned_object(new_version);
+
+  // delete marker should not be the last now
+  results.clear();
+  ASSERT_TRUE(uut.versions("testbucket", "", "", 1000, results));
+  ASSERT_EQ(results.size(), 3);
+  EXPECT_FALSE(results[0].is_delete_marker());
+  EXPECT_TRUE(results[0].is_current());
+  EXPECT_TRUE(results[1].is_delete_marker());
+  EXPECT_FALSE(results[1].is_current());
+  EXPECT_FALSE(results[2].is_delete_marker());
+  EXPECT_FALSE(results[2].is_current());
+}
+
 TEST_F(TestSFSList, roll_up_example) {
   // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html
   const auto uut = make_uut();
