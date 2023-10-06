@@ -16,5 +16,6 @@
 namespace rgw::sal::sfs::sqlite {
 
 bool critical_error(int ec);
+bool busy_error(int ec);
 
-}
+}  // namespace rgw::sal::sfs::sqlite

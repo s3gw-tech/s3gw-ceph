@@ -42,4 +42,16 @@ bool critical_error(int ec) {
   }
 }
 
+bool busy_error(int ec) {
+  switch (ec) {
+    case SQLITE_BUSY:
+    case SQLITE_BUSY_RECOVERY:
+    case SQLITE_BUSY_SNAPSHOT:
+    case SQLITE_LOCKED:
+      return true;
+    default:
+      return false;
+  }
+}
+
 }  // namespace rgw::sal::sfs::sqlite
