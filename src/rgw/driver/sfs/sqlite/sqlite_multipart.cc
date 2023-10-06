@@ -221,9 +221,10 @@ std::optional<DBMultipartPart> SQLiteMultipart::create_or_reset_part(
     const std::string& upload_id, uint32_t part_num, std::string* error_str
 ) const {
   auto storage = conn->get_storage();
-  std::optional<DBMultipartPart> entry = std::nullopt;
 
-  storage.transaction([&]() mutable {
+  RetrySQLite<std::optional<DBMultipartPart>> retry([&]() {
+    auto transaction = storage.transaction_guard();
+    std::optional<DBMultipartPart> entry = std::nullopt;
     auto cnt = storage.count<DBMultipart>(where(
         is_equal(&DBMultipart::upload_id, upload_id) and
         (is_equal(&DBMultipart::state, MultipartState::INPROGRESS) or
@@ -233,7 +234,7 @@ std::optional<DBMultipartPart> SQLiteMultipart::create_or_reset_part(
       if (error_str) {
         *error_str = "could not find upload";
       }
-      return false;
+      return entry;
     }
 
     // set multipart upload as being in progress
@@ -266,7 +267,7 @@ std::optional<DBMultipartPart> SQLiteMultipart::create_or_reset_part(
         if (error_str) {
           *error_str = e.what();
         }
-        return false;
+        return entry;
       }
     } else {
       part = DBMultipartPart{
@@ -283,15 +284,17 @@ std::optional<DBMultipartPart> SQLiteMultipart::create_or_reset_part(
         if (error_str) {
           *error_str = e.what();
         }
-        return false;
+        return entry;
       }
     }
 
     entry = part;
-    return true;
+    transaction.commit();
+    return entry;
   });
 
-  return entry;
+  auto val = retry.run();
+  return val.has_value() ? *val : std::nullopt;
 }
 
 bool SQLiteMultipart::finish_part(
