@@ -30,7 +30,7 @@ namespace rgw::sal::sfs::sqlite {
 // after retrying. Catches all non-critical exceptions and makes them
 // available via failed_error(). Critical exceptions are passed on.
 template <typename Return>
-class RetrySQLite {
+class RetrySQLiteBusy {
  public:
   using Func = std::function<Return(void)>;
 
@@ -42,11 +42,11 @@ class RetrySQLite {
   std::error_code m_failed_error{};
 
  public:
-  RetrySQLite(Func&& fn) : m_fn(std::forward<Func>(fn)) {}
-  RetrySQLite(RetrySQLite&&) = delete;
-  RetrySQLite(const RetrySQLite&) = delete;
-  RetrySQLite& operator=(const RetrySQLite&) = delete;
-  RetrySQLite& operator=(RetrySQLite&&) = delete;
+  RetrySQLiteBusy(Func&& fn) : m_fn(std::forward<Func>(fn)) {}
+  RetrySQLiteBusy(RetrySQLiteBusy&&) = delete;
+  RetrySQLiteBusy(const RetrySQLiteBusy&) = delete;
+  RetrySQLiteBusy& operator=(const RetrySQLiteBusy&) = delete;
+  RetrySQLiteBusy& operator=(RetrySQLiteBusy&&) = delete;
 
   /// run runs fn with up to m_max_retries retries. It may throw
   /// critical-exceptions. Non-critical errors are made available via
@@ -66,7 +66,13 @@ class RetrySQLite {
       } catch (const std::system_error& ex) {
         m_failed_error = ex.code();
         if (critical_error(ex.code().value())) {
-          // Rethrow, expect a higher layer to shut us down
+          ceph_abort_msgf(
+              "Critical SQLite error %d. Shutting down.", ex.code().value()
+          );
+        }
+        if (!busy_error(ex.code().value())) {
+          // Rethrow, expect a higher layer to handle (e.g constraint
+          // violations), reply internal server error or shut us down
           throw ex;
         }
         std::this_thread::sleep_for(10ms * retry);

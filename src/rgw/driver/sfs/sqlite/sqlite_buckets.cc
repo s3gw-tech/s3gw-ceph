@@ -139,7 +139,7 @@ std::optional<DBDeletedObjectItems> SQLiteBuckets::delete_bucket_transact(
     const std::string& bucket_id, uint max_objects, bool& bucket_deleted
 ) const {
   auto storage = conn->get_storage();
-  RetrySQLite<DBDeletedObjectItems> retry([&]() {
+  RetrySQLiteBusy<DBDeletedObjectItems> retry([&]() {
     bucket_deleted = false;
     DBDeletedObjectItems ret_values;
     storage.begin_transaction();

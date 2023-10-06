@@ -147,7 +147,7 @@ bool SQLiteVersionedObjects::
         const DBVersionedObject& object, std::vector<ObjectState> allowed_states
     ) const {
   auto storage = conn->get_storage();
-  RetrySQLite<bool> retry([&]() {
+  RetrySQLiteBusy<bool> retry([&]() {
     auto transaction = storage.transaction_guard();
     storage.update_all(
         set(c(&DBVersionedObject::object_id) = object.object_id,
@@ -449,7 +449,7 @@ SQLiteVersionedObjects::create_new_versioned_object_transact(
     const std::string& version_id
 ) const {
   auto storage = conn->get_storage();
-  RetrySQLite<DBVersionedObject> retry([&]() {
+  RetrySQLiteBusy<DBVersionedObject> retry([&]() {
     auto transaction = storage.transaction_guard();
     auto objs = storage.select(
         columns(&DBObject::uuid),
@@ -491,7 +491,7 @@ SQLiteVersionedObjects::remove_deleted_versions_transact(uint max_objects
 ) const {
   DBDeletedObjectItems ret_objs;
   auto storage = conn->get_storage();
-  RetrySQLite<DBDeletedObjectItems> retry([&]() {
+  RetrySQLiteBusy<DBDeletedObjectItems> retry([&]() {
     auto transaction = storage.transaction_guard();
     // get first the list of objects to be deleted up to max_objects
     // order by size so when we delete the versions data we are more efficient
