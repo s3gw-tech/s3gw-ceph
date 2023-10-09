@@ -111,7 +111,6 @@ bool SQLiteList::versions(
           &DBVersionedObject::size, &DBVersionedObject::version_type,
           is_equal(
               // IsLatest logic
-              // - delete markers are always on top
               // - Use the id as secondary condition if multiple version
               // with same max(commit_time) exists
               sqlite_orm::select(
@@ -126,7 +125,6 @@ bool SQLiteList::versions(
                       )
                   ),
                   multi_order_by(
-                      order_by(&DBVersionedObject::version_type).desc(),
                       order_by(&DBVersionedObject::commit_time).desc(),
                       order_by(&DBVersionedObject::id).desc()
                   ),
@@ -150,7 +148,6 @@ bool SQLiteList::versions(
       // newest to oldest version
       multi_order_by(
           order_by(&DBObject::name).asc(),
-          order_by(&DBVersionedObject::version_type).desc(),
           order_by(&DBVersionedObject::commit_time).desc(),
           order_by(&DBVersionedObject::id).desc()
       ),

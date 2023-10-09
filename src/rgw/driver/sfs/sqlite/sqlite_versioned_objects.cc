@@ -312,7 +312,6 @@ SQLiteVersionedObjects::delete_version_and_get_previous_transact(
               )
           ),
           multi_order_by(
-              order_by(&DBVersionedObject::version_type).desc(),
               order_by(&DBVersionedObject::commit_time).desc(),
               order_by(&DBVersionedObject::id).desc()
           ),
@@ -345,7 +344,6 @@ uint SQLiteVersionedObjects::add_delete_marker_transact(
             is_not_equal(&DBVersionedObject::object_state, ObjectState::DELETED)
         ),
         multi_order_by(
-            order_by(&DBVersionedObject::version_type).desc(),
             order_by(&DBVersionedObject::commit_time).desc(),
             order_by(&DBVersionedObject::id).desc()
         ),
@@ -360,6 +358,7 @@ uint SQLiteVersionedObjects::add_delete_marker_transact(
         auto now = ceph::real_clock::now();
         last_version.version_type = VersionType::DELETE_MARKER;
         last_version.object_state = ObjectState::COMMITTED;
+        last_version.commit_time = now;
         last_version.delete_time = now;
         last_version.mtime = now;
         last_version.version_id = delete_marker_id;
@@ -429,7 +428,6 @@ SQLiteVersionedObjects::get_committed_versioned_object_last_version(
           is_equal(&DBVersionedObject::object_state, ObjectState::COMMITTED)
       ),
       multi_order_by(
-          order_by(&DBVersionedObject::version_type).desc(),
           order_by(&DBVersionedObject::commit_time).desc(),
           order_by(&DBVersionedObject::id).desc()
       ),
