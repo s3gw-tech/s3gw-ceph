@@ -4,7 +4,9 @@
 #pragma once
 
 #include <memory>
+#ifdef WITH_RADOSGW_SFS
 #include "rgw_s3gw_telemetry.h"
+#endif
 
 class ActiveRateLimiter;
 class OpsLogSink;
@@ -41,7 +43,9 @@ struct RGWProcessEnv {
   OpsLogSink *olog = nullptr;
   std::unique_ptr<rgw::auth::StrategyRegistry> auth_registry;
   ActiveRateLimiter* ratelimiting = nullptr;
+#ifdef WITH_RADOSGW_SFS
   std::unique_ptr<S3GWTelemetry> s3gw_telemetry = nullptr;
+#endif
 
 #ifdef WITH_ARROW_FLIGHT
   // managed by rgw:flight::FlightFrontend in rgw_flight_frontend.cc

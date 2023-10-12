@@ -148,7 +148,6 @@ set(librgw_common_srcs
   rgw_bucket_encryption.cc
   rgw_tracer.cc
   rgw_lua_background.cc
-  rgw_s3gw_telemetry.cc
   driver/rados/cls_fifo_legacy.cc
   driver/rados/rgw_bucket.cc
   driver/rados/rgw_bucket_sync.cc
@@ -219,7 +218,7 @@ endif()
 if(WITH_RADOSGW_SFS)
   include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/src/rgw/driver/sfs/sqlite/sqlite_orm/include")
   add_subdirectory(driver/sfs)
-  list(APPEND librgw_common_srcs rgw_sal_sfs.cc)
+  list(APPEND librgw_common_srcs rgw_sal_sfs.cc rgw_s3gw_telemetry.cc)
 endif()
 if(WITH_RADOSGW_MOTR)
   list(APPEND librgw_common_srcs rgw_sal_motr.cc)
@@ -282,7 +281,6 @@ target_link_libraries(rgw_common
 target_include_directories(rgw_common
   PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw/services"
   PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw/driver/rados"
-  PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw/store/sfs"
   PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw"
   PUBLIC "${LUA_INCLUDE_DIR}")
 if(WITH_RADOSGW_KAFKA_ENDPOINT)
@@ -324,6 +322,7 @@ if(WITH_RADOSGW_DBSTORE)
 endif()
 
 if(WITH_RADOSGW_SFS)
+  target_include_directories(rgw_common PUBLIC "${CMAKE_SOURCE_DIR}/src/rgw/store/sfs")
   target_link_libraries(rgw_common PRIVATE global sfs)
 endif()
 
@@ -369,15 +368,19 @@ set(rgw_a_srcs
   rgw_rest_swift.cc
   rgw_rest_usage.cc
   rgw_signal.cc
-  rgw_status_frontend.cc
-  rgw_status_page.cc
-  rgw_status_page_telemetry.cc
   rgw_swift_auth.cc
   rgw_usage.cc
   rgw_sts.cc
   driver/rados/rgw_rest_bucket.cc
   driver/rados/rgw_rest_log.cc
   driver/rados/rgw_rest_realm.cc)
+
+if(WITH_RADOSGW_SFS)
+list(APPEND rgw_a_srcs
+  rgw_status_frontend.cc
+  rgw_status_page.cc
+  rgw_status_page_telemetry.cc)
+endif()
 
 gperf_generate(${CMAKE_SOURCE_DIR}/src/rgw/rgw_iam_policy_keywords.gperf
   rgw_iam_policy_keywords.frag.cc)

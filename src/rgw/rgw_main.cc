@@ -146,7 +146,9 @@ int main(int argc, char *argv[])
     return EIO;
   }
 
+#ifdef WITH_RADOSGW_SFS
   main.init_s3gw_telemetry();
+#endif // WITH_RADOSGW_SFS
   main.cond_init_apis();
 
   mutex.lock();

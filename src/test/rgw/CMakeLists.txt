@@ -268,16 +268,6 @@ target_include_directories(unittest_log_backing
 target_link_libraries(unittest_log_backing radostest-cxx ${UNITTEST_LIBS}
   ${rgw_libs})
 
-# unittest_rgw_status_page
-add_executable(unittest_rgw_s3gw_telemetry test_rgw_s3gw_telemetry.cc)
-add_ceph_unittest(unittest_rgw_s3gw_telemetry)
-target_include_directories(unittest_rgw_s3gw_telemetry
-  SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/src/rgw"
-  SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/src/rgw/store/rados")
-target_link_libraries(unittest_rgw_s3gw_telemetry ${rgw_libs})
-set_tests_properties(unittest_rgw_s3gw_telemetry
-  PROPERTIES LABELS "unittest;rgw;s3gw;telemetry")
-
 add_executable(unittest_rgw_lua test_rgw_lua.cc)
 add_ceph_unittest(unittest_rgw_lua)
 target_include_directories(unittest_rgw_lua
@@ -295,4 +285,17 @@ target_link_libraries(radosgw-cr-test ${rgw_libs} librados
   ${CURL_LIBRARIES} ${EXPAT_LIBRARIES} ${BLKID_LIBRARIES}
   GTest::GTest)
 
-add_subdirectory(sfs)
+if(WITH_RADOSGW_SFS)
+  # unittest_rgw_status_page
+  add_executable(unittest_rgw_s3gw_telemetry test_rgw_s3gw_telemetry.cc)
+  add_ceph_unittest(unittest_rgw_s3gw_telemetry)
+  target_include_directories(unittest_rgw_s3gw_telemetry
+    SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/src/rgw"
+    SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/src/rgw/store/rados")
+  target_link_libraries(unittest_rgw_s3gw_telemetry ${rgw_libs})
+  set_tests_properties(unittest_rgw_s3gw_telemetry
+    PROPERTIES LABELS "unittest;rgw;s3gw;telemetry")
+
+  # SFS tests
+  add_subdirectory(sfs)
+endif()

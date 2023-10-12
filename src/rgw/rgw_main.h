@@ -107,7 +107,9 @@ public:
   void init_tracepoints();
   void init_notification_endpoints();
   void init_lua();
+#ifdef WITH_RADOSGW_SFS
   void init_s3gw_telemetry();
+#endif // WITH_RADOSGW_SFS
 
   bool have_http() {
     return have_http_frontend;
