@@ -382,7 +382,7 @@ int SFSMultipartUploadV2::complete(
                  part.part_num, partfd, objpath, objfd, cpp_strerror(errno)
              )
           << dendl;
-      ceph_abort("Unexpected error aggregating multipart upload");
+      ceph_abort_msg("Unexpected error aggregating multipart upload");
     }
     accounted_bytes += partsize;
     ret = ::fsync(objfd);
@@ -392,7 +392,7 @@ int SFSMultipartUploadV2::complete(
                                 objfd, objpath, cpp_strerror(ret)
                             )
                          << dendl;
-      ceph_abort("Unexpected error fsync'ing obj path");
+      ceph_abort_msg("Unexpected error fsync'ing obj path");
     }
     ret = ::close(partfd);
     if (ret < 0) {
@@ -401,7 +401,7 @@ int SFSMultipartUploadV2::complete(
                                 partfd, path, cpp_strerror(ret)
                             )
                          << dendl;
-      ceph_abort("Unexpected error on closing part path");
+      ceph_abort_msg("Unexpected error on closing part path");
     }
   }
 
@@ -421,7 +421,7 @@ int SFSMultipartUploadV2::complete(
                               accounted_bytes, final_obj_size
                           )
                        << dendl;
-    ceph_abort("BUG: on final object for multipart upload!");
+    ceph_abort_msg("BUG: on final object for multipart upload!");
   }
 
   lsfs_dout(dpp, 10)
