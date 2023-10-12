@@ -29,6 +29,7 @@
 #include "rgw_d3n_datacache.h"
 
 #ifdef WITH_RADOSGW_SFS
+#include <sys/resource.h>
 #include "rgw_sal_sfs.h"
 #endif // WITH_RADOSGW_SFS
 
@@ -183,6 +184,40 @@ rgw::sal::Driver* DriverManager::init_storage_provider(const DoutPrefixProvider*
 
 #ifdef WITH_RADOSGW_SFS
   if (cfg.store_name.compare("sfs") == 0) {
+
+    struct rlimit file_limit;
+    if (getrlimit(RLIMIT_NOFILE, &file_limit) != 0) {
+      // This can't happen.
+      ldpp_dout(dpp, 0) << "ERROR: can't check maximum open file limit (errno="
+                        << cpp_strerror(errno) << ")" << dendl;
+      return nullptr;
+    }
+    // This is somewhat arbitrary, but the idea is that we potentially need
+    // at least 4 FDs per worker thread (two for the sqlite db and its WAL,
+    // and another two to accommodate files that may be being read or written),
+    // plus about 40 for various pipes and sockets and things that appear in
+    // in /proc/$(pgrep radosgw)/fd before anything interesting happens, so
+    // let's round that 40 up to 64 just in case.
+    rlim_t required_file_limit = 64 + cct->_conf->rgw_thread_pool_size * 4;
+    if (file_limit.rlim_max < required_file_limit) {
+      // This shouldn't happen.
+      ldpp_dout(dpp, 0) << "ERROR: hard open file limit is "
+                        << file_limit.rlim_max << " but we may need "
+                        << required_file_limit << " or more" << dendl;
+      return nullptr;
+    }
+    file_limit.rlim_cur = file_limit.rlim_max;
+    if (setrlimit(RLIMIT_NOFILE, &file_limit)) {
+      // This might happen?
+      ldpp_dout(dpp, 0) << "ERROR: unable to increase soft open file limit to "
+                        << file_limit.rlim_cur
+                        << " (errno=" << cpp_strerror(errno) << ")" << dendl;
+      return nullptr;
+    }
+
+    ldpp_dout(dpp, 5) << "RLIMIT_NOFILE set to "
+                      << file_limit.rlim_cur << dendl;
+
     const auto& data_path =
       g_conf().get_val<std::string>("rgw_sfs_data_path");
     ldpp_dout(dpp, 0) << "sfs init!" << dendl;
