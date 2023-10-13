@@ -29,7 +29,6 @@
 #include "include/stringify.h"
 #include "rgw_main.h"
 #include "rgw_common.h"
-#include "rgw_s3gw_telemetry.h"
 #include "rgw_sal_rados.h"
 #include "rgw_period_pusher.h"
 #include "rgw_realm_reloader.h"
@@ -45,8 +44,6 @@
 #include "rgw_rest_config.h"
 #include "rgw_rest_realm.h"
 #include "rgw_rest_ratelimit.h"
-#include "rgw_status_page.h"
-#include "rgw_status_page_telemetry.h"
 #include "rgw_swift_auth.h"
 #include "rgw_log.h"
 #include "rgw_lib.h"
@@ -78,8 +75,13 @@
 #endif
 #include "rgw_lua_background.h"
 #include "services/svc_zone.h"
+#ifdef WITH_RADOSGW_SFS
+#include "rgw_s3gw_telemetry.h"
+#include "rgw_status_page.h"
+#include "rgw_status_page_telemetry.h"
 #include "rgw_sal_sfs.h"
 #include "rgw_status_frontend.h"
+#endif // WITH_RADOSGW_SFS
 
 #ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
@@ -454,6 +456,7 @@ int rgw::AppMain::init_frontends2(RGWLib* rgwlib)
       continue;
 #endif
     }
+#ifdef WITH_RADOSGW_SFS
     else if (framework == "status") {
       auto cct = dpp->get_cct();
       RGWStatusFrontend* stat = new RGWStatusFrontend(env, config, cct);
@@ -479,7 +482,7 @@ int rgw::AppMain::init_frontends2(RGWLib* rgwlib)
       stat->register_status_page(std::move(prometheus));
       fe = stat;
     }
-
+#endif // WITH_RADOSGW_SFS
     service_map_meta["frontend_type#" + stringify(fe_count)] = framework;
     service_map_meta["frontend_config#" + stringify(fe_count)] = config->get_config();
 
@@ -588,6 +591,7 @@ void rgw::AppMain::init_lua()
   }
 } /* init_lua */
 
+#ifdef WITH_RADOSGW_SFS
 void rgw::AppMain::init_s3gw_telemetry()
 {
   rgw::sal::Driver* driver = env.driver;
@@ -597,7 +601,7 @@ void rgw::AppMain::init_s3gw_telemetry()
     env.s3gw_telemetry->start();
   }
 } /* init_s3gw_telemetry */
-
+#endif // WITH_RADOSGW_SFS
 
 void rgw::AppMain::shutdown(std::function<void(void)> finalize_async_signals)
 {
@@ -645,7 +649,9 @@ void rgw::AppMain::shutdown(std::function<void(void)> finalize_async_signals)
 #endif
   rgw_perf_stop(g_ceph_context);
   ratelimiter.reset(); // deletes--ensure this happens before we destruct
+#ifdef WITH_RADOSGW_SFS
   if (env.s3gw_telemetry) {
     env.s3gw_telemetry->stop();
   }
+#endif // WITH_RADOSGW_SFS
 } /* AppMain::shutdown */
