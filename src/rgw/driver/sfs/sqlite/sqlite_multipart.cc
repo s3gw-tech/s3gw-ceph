@@ -222,7 +222,7 @@ std::optional<DBMultipartPart> SQLiteMultipart::create_or_reset_part(
 ) const {
   auto storage = conn->get_storage();
 
-  RetrySQLite<std::optional<DBMultipartPart>> retry([&]() {
+  RetrySQLiteBusy<std::optional<DBMultipartPart>> retry([&]() {
     auto transaction = storage.transaction_guard();
     std::optional<DBMultipartPart> entry = std::nullopt;
     auto cnt = storage.count<DBMultipart>(where(
@@ -466,7 +466,7 @@ SQLiteMultipart::remove_multiparts_by_bucket_id_transact(
 ) const {
   DBDeletedMultipartItems ret_parts;
   auto storage = conn->get_storage();
-  RetrySQLite<DBDeletedMultipartItems> retry([&]() {
+  RetrySQLiteBusy<DBDeletedMultipartItems> retry([&]() {
     auto transaction = storage.transaction_guard();
     // get first the list of parts to be deleted up to max_items
     ret_parts = storage.select(
@@ -532,7 +532,7 @@ SQLiteMultipart::remove_done_or_aborted_multiparts_transact(uint max_items
 ) const {
   DBDeletedMultipartItems ret_parts;
   auto storage = conn->get_storage();
-  RetrySQLite<DBDeletedMultipartItems> retry([&]() {
+  RetrySQLiteBusy<DBDeletedMultipartItems> retry([&]() {
     auto transaction = storage.transaction_guard();
     // get first the list of parts to be deleted up to max_items
     ret_parts = storage.select(

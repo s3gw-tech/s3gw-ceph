@@ -7,6 +7,7 @@
 #include "common/ceph_context.h"
 #include "driver/sfs/sqlite/retry.h"
 #include "driver/sfs/sqlite/sqlite_orm.h"
+#include "gtest/gtest.h"
 #include "rgw/rgw_sal_sfs.h"
 #include "rgw_common.h"
 
@@ -25,10 +26,12 @@ class TestSFSRetrySQLite : public ::testing::Test {
   void TearDown() override {}
 };
 
+class TestSFSRetrySQLiteDeathTest : public TestSFSRetrySQLite {};
+
 TEST_F(TestSFSRetrySQLite, retry_non_crit_till_failure) {
   auto exception =
       std::system_error{SQLITE_BUSY, sqlite_orm::get_sqlite_error_category()};
-  RetrySQLite<int> uut([&]() {
+  RetrySQLiteBusy<int> uut([&]() {
     throw exception;
     return 0;
   });
@@ -38,21 +41,19 @@ TEST_F(TestSFSRetrySQLite, retry_non_crit_till_failure) {
   EXPECT_GT(uut.retries(), 0);
 }
 
-TEST_F(TestSFSRetrySQLite, crit_throws_without_retry) {
+TEST_F(TestSFSRetrySQLiteDeathTest, crit_aborts) {
+  GTEST_FLAG_SET(death_test_style, "threadsafe");
   auto exception = std::system_error{
       SQLITE_CORRUPT, sqlite_orm::get_sqlite_error_category()};
-  RetrySQLite<int> uut([&]() {
+  RetrySQLiteBusy<int> uut([&]() {
     throw exception;
     return 0;
   });
-  EXPECT_THROW(uut.run(), decltype(exception));
-  EXPECT_FALSE(uut.successful());
-  EXPECT_EQ(uut.failed_error(), exception.code());
-  EXPECT_EQ(uut.retries(), 0);
+  ASSERT_DEATH(uut.run(), "Critical SQLite error");
 }
 
 TEST_F(TestSFSRetrySQLite, simple_return_succeeds_immediately) {
-  RetrySQLite<int> uut([&]() { return 42; });
+  RetrySQLiteBusy<int> uut([&]() { return 42; });
   EXPECT_EQ(uut.run(), 42);
   EXPECT_TRUE(uut.successful());
   EXPECT_EQ(uut.retries(), 0);
@@ -62,7 +63,7 @@ TEST_F(TestSFSRetrySQLite, retry_second_time_success) {
   auto exception =
       std::system_error{SQLITE_BUSY, sqlite_orm::get_sqlite_error_category()};
   bool first = true;
-  RetrySQLite<int> uut([&]() {
+  RetrySQLiteBusy<int> uut([&]() {
     if (first) {
       first = false;
       throw exception;
