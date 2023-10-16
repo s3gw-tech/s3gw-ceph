@@ -3,7 +3,6 @@ test_atomic_dual_conditional_write_1mb;https://github.com/aquarist-labs/s3gw/iss
 test_bucket_create_exists_nonowner;https://github.com/aquarist-labs/s3gw/issues/617;BUG
 test_bucket_create_special_key_names;https://github.com/aquarist-labs/s3gw/issues/516;BUG
 test_bucket_get_location;https://github.com/aquarist-labs/s3gw/issues/676;BUG
-test_bucket_head_extended;https://github.com/aquarist-labs/s3gw/issues/196;WIP, RGW Extension
 test_bucket_list_delimiter_not_skip_special;https://github.com/aquarist-labs/s3gw/issues/691;BUG
 test_bucket_list_delimiter_prefix_underscore;https://github.com/aquarist-labs/s3gw/issues/691;BUG
 test_bucket_listv2_delimiter_prefix_underscore;https://github.com/aquarist-labs/s3gw/issues/691;BUG
@@ -22,7 +21,6 @@ test_bucket_recreate_new_acl;https://github.com/aquarist-labs/s3gw/issues/617;BU
 test_bucket_recreate_overwrite_acl;https://github.com/aquarist-labs/s3gw/issues/617;BUG
 test_delete_tags_obj_public;https://github.com/aquarist-labs/s3gw/issues/675;BUG
 test_get_tags_acl_public;https://github.com/aquarist-labs/s3gw/issues/675;BUG
-test_head_bucket_usage;https://github.com/aquarist-labs/s3gw/issues/92;Unsupported RGW Extension
 test_lifecycle_expiration_header_head;https://github.com/aquarist-labs/s3gw/issues/695;BUG
 test_lifecycle_expiration_header_tags_head;https://github.com/aquarist-labs/s3gw/issues/695;BUG
 test_logging_toggle;https://tracker.ceph.com/issues/984;Not supported by RGW

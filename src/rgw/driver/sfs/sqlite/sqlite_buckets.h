@@ -28,6 +28,11 @@ class SQLiteBuckets {
   SQLiteBuckets(const SQLiteBuckets&) = delete;
   SQLiteBuckets& operator=(const SQLiteBuckets&) = delete;
 
+  struct Stats {
+    size_t size;
+    uint64_t obj_count;
+  };
+
   std::optional<DBOPBucketInfo> get_bucket(const std::string& bucket_id) const;
   std::vector<DBOPBucketInfo> get_bucket_by_name(const std::string& bucket_name
   ) const;
@@ -51,6 +56,9 @@ class SQLiteBuckets {
   bool bucket_empty(const std::string& bucket_id) const;
   std::optional<DBDeletedObjectItems> delete_bucket_transact(
       const std::string& bucket_id, uint max_objects, bool& bucket_deleted
+  ) const;
+  const std::optional<SQLiteBuckets::Stats> get_stats(
+      const std::string& bucket_id
   ) const;
 };
 
