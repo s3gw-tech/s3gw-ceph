@@ -12,6 +12,9 @@ on:
     tags:
       - "s3gw-v*"
 
+  # This is useful when rebasing
+  workflow_dispatch:
+
 env:
   CMAKE_BUILD_TYPE: Debug
   NPROC: 16
