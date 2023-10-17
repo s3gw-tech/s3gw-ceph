@@ -149,6 +149,12 @@ Object* Object::try_fetch_from_database(
     return nullptr;
   }
 
+  // don't return the version_id if versioning is not enabled
+  // and the user didn't ask for a specific version.
+  // Returning the version_id when no required breaks s3tests related to tags
+  if (!versioning_enabled && version_id.empty()) {
+    version->version_id.clear();
+  }
   auto result =
       new Object(rgw_obj_key(name, version->version_id), version->object_id);
   result->deleted = (version->version_type == VersionType::DELETE_MARKER);
