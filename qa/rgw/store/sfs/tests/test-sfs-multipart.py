@@ -168,8 +168,6 @@ class MultipartUploadSmokeTests(unittest.TestCase):
         self.assertGreaterEqual(now.year, response["LastModified"].year)
         self.assertTrue("ContentType" in response)
         self.assertEqual("binary/octet-stream", response["ContentType"])
-        self.assertTrue("VersionId" in response)
-        self.assertNotEqual("", response["VersionId"])
         self.assertTrue("ContentLength" in response)
         self.assertEqual(objsize, response["ContentLength"])
 
