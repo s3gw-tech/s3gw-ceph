@@ -13,9 +13,9 @@
  */
 #include "sqlite_objects.h"
 
+#include "dbapi.h"
+#include "sqlite_query_utils.h"
 #include "sqlite_versioned_objects.h"
-
-using namespace sqlite_orm;
 
 namespace rgw::sal::sfs::sqlite {
 
@@ -23,47 +23,47 @@ SQLiteObjects::SQLiteObjects(DBConnRef _conn) : conn(_conn) {}
 
 std::vector<DBObject> SQLiteObjects::get_objects(const std::string& bucket_id
 ) const {
-  auto storage = conn->get_storage();
-  return storage->get_all<DBObject>(
-      where(is_equal(&DBObject::bucket_id, bucket_id))
+  return GetSQLiteObjectsWhere<DBObject>(
+      conn->get(), "objects", "bucket_id", bucket_id
   );
 }
 
 std::optional<DBObject> SQLiteObjects::get_object(const uuid_d& uuid) const {
-  auto storage = conn->get_storage();
-  auto object = storage->get_pointer<DBObject>(uuid.to_string());
-  std::optional<DBObject> ret_value;
-  if (object) {
-    ret_value = *object;
-  }
-  return ret_value;
+  return GetSQLiteSingleObject<DBObject>(
+      conn->get(), "objects", "uuid", uuid.to_string()
+  );
 }
 
 std::optional<DBObject> SQLiteObjects::get_object(
     const std::string& bucket_id, const std::string& object_name
 ) const {
-  auto storage = conn->get_storage();
-  auto objects = storage->get_all<DBObject>(where(
-      is_equal(&DBObject::bucket_id, bucket_id) and
-      is_equal(&DBObject::name, object_name)
-  ));
-
-  std::optional<DBObject> ret_value;
-  // value must be unique
-  if (objects.size() == 1) {
-    ret_value = objects[0];
+  auto rows =
+      conn->get()
+      << R"sql(SELECT * FROM objects WHERE bucket_id = ? AND name = ?;)sql"
+      << bucket_id << object_name;
+  std::optional<DBObject> ret_object;
+  for (auto&& row : rows) {
+    ret_object = DBObject(row);
+    break;  // looking for a single object, it should return 0 or 1 entries.
+            // TODO Return an error in there are more than 1 entry?
   }
-  return ret_value;
+  return ret_object;
 }
 
 void SQLiteObjects::store_object(const DBObject& object) const {
-  auto storage = conn->get_storage();
-  storage->replace(object);
+  dbapi::sqlite::database db = conn->get();
+  db << R"sql(
+    REPLACE INTO objects ( uuid, bucket_id, name )
+    VALUES (?, ?, ?);)sql"
+     << object.uuid << object.bucket_id << object.name;
 }
 
 void SQLiteObjects::remove_object(const uuid_d& uuid) const {
-  auto storage = conn->get_storage();
-  storage->remove<DBObject>(uuid);
+  dbapi::sqlite::database db = conn->get();
+  db << R"sql(
+    DELETE FROM objects
+    WHERE uuid = ?;)sql"
+     << uuid;
 }
 
 }  // namespace rgw::sal::sfs::sqlite

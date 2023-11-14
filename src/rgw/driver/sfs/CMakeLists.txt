@@ -20,7 +20,6 @@ set(sfs_srcs
   sqlite/sqlite_versioned_objects.cc
   sqlite/sqlite_lifecycle.cc
   sqlite/sqlite_multipart.cc
-  sqlite/users/users_conversions.cc
   sqlite/buckets/bucket_conversions.cc
   sqlite/dbconn.cc
   sqlite/errors.cc

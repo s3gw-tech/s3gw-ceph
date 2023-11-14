@@ -24,6 +24,17 @@ struct DBObject {
   uuid_d uuid;
   std::string bucket_id;
   std::string name;
+
+  using DBObjectQueryResult = std::tuple<
+      decltype(DBObject::uuid), decltype(DBObject::bucket_id),
+      decltype(DBObject::name)>;
+
+  DBObject() = default;
+
+  explicit DBObject(DBObjectQueryResult values)
+      : uuid(std::get<0>(values)),
+        bucket_id(std::get<1>(values)),
+        name(std::get<2>(values)) {}
 };
 
 }  // namespace rgw::sal::sfs::sqlite

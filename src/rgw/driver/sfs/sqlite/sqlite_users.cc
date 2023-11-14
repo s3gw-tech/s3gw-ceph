@@ -16,9 +16,8 @@
 #include <filesystem>
 #include <iostream>
 
-#include "users/users_conversions.h"
-
-using namespace sqlite_orm;
+#include "dbapi.h"
+#include "sqlite_query_utils.h"
 
 namespace rgw::sal::sfs::sqlite {
 
@@ -26,101 +25,107 @@ SQLiteUsers::SQLiteUsers(DBConnRef _conn) : conn(_conn) {}
 
 std::optional<DBOPUserInfo> SQLiteUsers::get_user(const std::string& userid
 ) const {
-  auto storage = conn->get_storage();
-  auto user = storage->get_pointer<DBUser>(userid);
-  std::optional<DBOPUserInfo> ret_value;
-  if (user) {
-    ret_value = get_rgw_user(*user);
-  }
-  return ret_value;
+  return GetSQLiteSingleObject<DBOPUserInfo>(
+      conn->get(), "users", "user_id", userid
+  );
 }
 
 std::optional<DBOPUserInfo> SQLiteUsers::get_user_by_email(
     const std::string& email
 ) const {
-  auto users = get_users_by(where(c(&DBUser::user_email) = email));
-  std::optional<DBOPUserInfo> ret_value;
-  if (users.size()) {
-    ret_value = users[0];
-  }
-  return ret_value;
+  return GetSQLiteSingleObject<DBOPUserInfo>(
+      conn->get(), "users", "user_email", email
+  );
 }
 
 std::optional<DBOPUserInfo> SQLiteUsers::get_user_by_access_key(
     const std::string& key
 ) const {
-  auto storage = conn->get_storage();
-  auto user_id = _get_user_id_by_access_key(storage, key);
-  std::optional<DBOPUserInfo> ret_value;
-  if (user_id.has_value()) {
-    auto user = storage->get_pointer<DBUser>(user_id);
-    if (user) {
-      ret_value = get_rgw_user(*user);
-    }
-  }
-  return ret_value;
+  auto user_id = _get_user_id_by_access_key(key);
+  return GetSQLiteSingleObject<DBOPUserInfo>(
+      conn->get(), "users", "user_id", user_id
+  );
 }
 
 std::vector<std::string> SQLiteUsers::get_user_ids() const {
-  auto storage = conn->get_storage();
-  return storage->select(&DBUser::user_id);
+  dbapi::sqlite::database db = conn->get();
+  auto rows = db << R"sql(SELECT user_id FROM users;)sql";
+  std::vector<std::string> ret;
+  for (std::tuple<std::string> row : rows) {
+    ret.emplace_back(std::get<0>(row));
+  }
+  return ret;
 }
 
 void SQLiteUsers::store_user(const DBOPUserInfo& user) const {
-  auto storage = conn->get_storage();
-  auto db_user = get_db_user(user);
-  storage->replace(db_user);
-  _store_access_keys(storage, user);
+  dbapi::sqlite::database db = conn->get();
+  db << R"sql(
+    REPLACE INTO users ( user_id, tenant, ns, display_name, user_email,
+                         access_keys, swift_keys, sub_users, suspended,
+                         max_buckets, op_mask, user_caps, admin, system,
+                         placement_name, placement_storage_class,
+                         placement_tags, bucket_quota, temp_url_keys,
+                         user_quota, type, mfa_ids, assumed_role_arn,
+                         user_attrs, user_version, user_version_tag )
+    VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               ?, ?, ?, ?, ?, ?, ?, ? );)sql"
+     << user.uinfo.user_id.id << user.uinfo.user_id.tenant
+     << user.uinfo.user_id.ns << user.uinfo.display_name
+     << user.uinfo.user_email << user.uinfo.access_keys << user.uinfo.swift_keys
+     << user.uinfo.subusers << user.uinfo.suspended << user.uinfo.max_buckets
+     << user.uinfo.op_mask << user.uinfo.caps << user.uinfo.admin
+     << user.uinfo.system << user.uinfo.default_placement.name
+     << user.uinfo.default_placement.storage_class << user.uinfo.placement_tags
+     << user.uinfo.quota.bucket_quota << user.uinfo.temp_url_keys
+     << user.uinfo.quota.user_quota << user.uinfo.type << user.uinfo.mfa_ids
+     << nullptr << user.user_attrs << user.user_version.ver
+     << user.user_version.tag;
+  _store_access_keys(user);
 }
 
 void SQLiteUsers::remove_user(const std::string& userid) const {
-  auto storage = conn->get_storage();
-  _remove_access_keys(storage, userid);
-  storage->remove<DBUser>(userid);
+  dbapi::sqlite::database db = conn->get();
+  db << R"sql(
+    DELETE FROM users
+    WHERE user_id = ?;)sql"
+     << userid;
 }
 
-template <class... Args>
-std::vector<DBOPUserInfo> SQLiteUsers::get_users_by(Args... args) const {
-  std::vector<DBOPUserInfo> users_return;
-  auto storage = conn->get_storage();
-  auto users = storage->get_all<DBUser>(args...);
-  for (auto& user : users) {
-    users_return.push_back(get_rgw_user(user));
-  }
-  return users_return;
-}
-
-void SQLiteUsers::_store_access_keys(
-    StorageRef storage, const DBOPUserInfo& user
-) const {
+void SQLiteUsers::_store_access_keys(const DBOPUserInfo& user) const {
   // remove existing keys for the user (in case any of them had changed)
-  _remove_access_keys(storage, user.uinfo.user_id.id);
+  _remove_access_keys(user.uinfo.user_id.id);
+  dbapi::sqlite::database db = conn->get();
   for (auto const& key : user.uinfo.access_keys) {
-    DBAccessKey db_key;
-    db_key.access_key = key.first;
-    db_key.user_id = user.uinfo.user_id.id;
-    storage->insert(db_key);
+    db << R"sql(INSERT INTO access_keys (access_key, user_id) VALUES (?,?);)sql"
+       << key.first << user.uinfo.user_id.id;
   }
 }
 
-void SQLiteUsers::_remove_access_keys(
-    StorageRef storage, const std::string& userid
-) const {
-  storage->remove_all<DBAccessKey>(where(c(&DBAccessKey::user_id) = userid));
+void SQLiteUsers::_remove_access_keys(const std::string& userid) const {
+  dbapi::sqlite::database db = conn->get();
+  db << R"sql(
+    DELETE FROM access_keys
+    WHERE user_id = ?;)sql"
+     << userid;
 }
 
 std::optional<std::string> SQLiteUsers::_get_user_id_by_access_key(
-    StorageRef storage, const std::string& key
+    const std::string& key
 ) const {
-  auto keys =
-      storage->get_all<DBAccessKey>(where(c(&DBAccessKey::access_key) = key));
-  std::optional<std::string> ret_value;
-  if (keys.size() > 0) {
+  std::optional<std::string> ret;
+  dbapi::sqlite::database db = conn->get();
+  auto rows = db << R"sql(
+    SELECT user_id FROM access_keys
+    WHERE access_key = ?;)sql"
+                 << key;
+  for (std::tuple<std::string> row : rows) {
+    ret = std::get<0>(row);
     // in case we have 2 keys that are equal in different users we return
     // the first one.
-    ret_value = keys[0].user_id;
+    // TODO Consider this an error?
+    break;
   }
-  return ret_value;
+  return ret;
 }
 
 }  // namespace rgw::sal::sfs::sqlite
