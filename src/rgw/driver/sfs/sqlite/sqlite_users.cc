@@ -85,6 +85,7 @@ void SQLiteUsers::store_user(const DBOPUserInfo& user) const {
 
 void SQLiteUsers::remove_user(const std::string& userid) const {
   dbapi::sqlite::database db = conn->get();
+  _remove_access_keys(userid);
   db << R"sql(
     DELETE FROM users
     WHERE user_id = ?;)sql"
