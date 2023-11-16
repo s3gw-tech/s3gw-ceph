@@ -1307,11 +1307,10 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestAddDeleteMarker) {
   auto delete_marker_id = "delete_marker_id";
   uuid_d uuid;
   uuid.parse(TEST_OBJECT_ID.c_str());
-  bool added;
-  auto id = db_versioned_objects->add_delete_marker_transact(
-      uuid, delete_marker_id, added
-  );
-  EXPECT_TRUE(added);
+  uint id;
+  EXPECT_TRUE(db_versioned_objects->add_delete_marker_transact(
+      uuid, delete_marker_id, &id
+  ));
   EXPECT_EQ(4, id);
   auto delete_marker = db_versioned_objects->get_versioned_object(4);
   ASSERT_TRUE(delete_marker.has_value());
@@ -1324,10 +1323,11 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestAddDeleteMarker) {
 
   // add another delete marker (should not add it because the marker already
   // exists)
-  id = db_versioned_objects->add_delete_marker_transact(
-      uuid, delete_marker_id, added
+  EXPECT_FALSE(
+      id = db_versioned_objects->add_delete_marker_transact(
+          uuid, delete_marker_id, &id
+      )
   );
-  EXPECT_FALSE(added);
   EXPECT_EQ(0, id);
   auto last_version = db_versioned_objects->get_versioned_object(5);
   ASSERT_FALSE(last_version.has_value());
@@ -1348,10 +1348,9 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestAddDeleteMarker) {
   db_versioned_objects->store_versioned_object(*read_version);
 
   // try to create the delete marker (we still have 1 alive version)
-  id = db_versioned_objects->add_delete_marker_transact(
-      uuid, delete_marker_id, added
-  );
-  EXPECT_TRUE(added);
+  EXPECT_TRUE(db_versioned_objects->add_delete_marker_transact(
+      uuid, delete_marker_id, &id
+  ));
   EXPECT_EQ(5, id);
   delete_marker = db_versioned_objects->get_versioned_object(5);
   ASSERT_TRUE(delete_marker.has_value());
@@ -1373,11 +1372,9 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestAddDeleteMarker) {
 
   // add another delete marker (should not add it because all the versions of
   // the object are deleted)
-  id = db_versioned_objects->add_delete_marker_transact(
-      uuid, delete_marker_id, added
-  );
-  EXPECT_FALSE(added);
-  EXPECT_EQ(0, id);
+  EXPECT_FALSE(db_versioned_objects->add_delete_marker_transact(
+      uuid, delete_marker_id, &id
+  ));
 }
 
 void insertNCommittedVersionsIncrementingSize(
@@ -1497,11 +1494,9 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestRemovedDeletedVersions) {
   uuid_object_1.parse(TEST_OBJECT_ID.c_str());
 
   // add a delete marker on the first object
-  bool delete_marker_added = false;
-  db_versioned_objects->add_delete_marker_transact(
-      uuid_object_1, "delete_marker_1", delete_marker_added
-  );
-  EXPECT_TRUE(delete_marker_added);
+  EXPECT_TRUE(db_versioned_objects->add_delete_marker_transact(
+      uuid_object_1, "delete_marker_1"
+  ));
 
   // call to delete again, nothing should be deleted
   deleted_objs_optional =
@@ -1756,11 +1751,10 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerNotAlwaysOnTop) {
   uuid_d uuid;
   uuid.parse(TEST_OBJECT_ID.c_str());
 
-  bool added;
-  auto id = db_versioned_objects->add_delete_marker_transact(
-      uuid, delete_marker_id, added
-  );
-  EXPECT_TRUE(added);
+  uint id;
+  EXPECT_TRUE(db_versioned_objects->add_delete_marker_transact(
+      uuid, delete_marker_id, &id
+  ));
   EXPECT_EQ(4, id);
   auto delete_marker = db_versioned_objects->get_versioned_object(4);
   ASSERT_TRUE(delete_marker.has_value());
@@ -1792,10 +1786,9 @@ TEST_F(TestSFSSQLiteVersionedObjects, TestDeleteMarkerNotAlwaysOnTop) {
 
   // another delete marker
   delete_marker_id = "delete_marker_id_2";
-  id = db_versioned_objects->add_delete_marker_transact(
-      uuid, delete_marker_id, added
-  );
-  EXPECT_TRUE(added);
+  EXPECT_TRUE(db_versioned_objects->add_delete_marker_transact(
+      uuid, delete_marker_id, &id
+  ));
 
   // check that the new delete marker is the last version now
   last_version = db_versioned_objects->get_committed_versioned_object(

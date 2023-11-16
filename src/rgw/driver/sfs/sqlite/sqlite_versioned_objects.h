@@ -72,8 +72,9 @@ class SQLiteVersionedObjects {
       const std::string& version_id
   ) const;
 
-  uint add_delete_marker_transact(
-      const uuid_d& object_id, const std::string& delete_marker_id, bool& added
+  bool add_delete_marker_transact(
+      const uuid_d& object_id, const std::string& delete_marker_id,
+      uint* out_id = nullptr
   ) const;
 
   std::optional<DBDeletedObjectItems> remove_deleted_versions_transact(
