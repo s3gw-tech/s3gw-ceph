@@ -334,8 +334,8 @@ SQLiteVersionedObjects::delete_version_and_get_previous_transact(
 bool SQLiteVersionedObjects::add_delete_marker_transact(
     const uuid_d& object_id, const std::string& delete_marker_id, uint* out_id
 ) const {
-  try {
-    auto storage = conn->get_storage();
+  auto storage = conn->get_storage();
+  RetrySQLiteBusy<bool> retry([&]() {
     auto transaction = storage->transaction_guard();
     auto last_version_select = storage->get_all<DBVersionedObject>(
         where(
@@ -371,12 +371,10 @@ bool SQLiteVersionedObjects::add_delete_marker_transact(
         return true;
       }
     }
-  } catch (const std::system_error& e) {
-    // throw exception (will be caught later in the sfs logic)
-    // TODO revisit this when error handling is defined
-    throw(e);
-  }
-  return false;
+    return false;
+  });
+  const auto result = retry.run();
+  return result.has_value() ? result.value() : false;
 }
 
 std::optional<DBVersionedObject>
