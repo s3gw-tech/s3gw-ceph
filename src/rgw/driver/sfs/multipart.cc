@@ -470,6 +470,22 @@ int SFSMultipartUploadV2::complete(
     return -ERR_INTERNAL_ERROR;
   }
 
+  // for object-locking enabled buckets, set the bucket's object-locking
+  // profile when not defined on the MP part
+  if (bucketref->get_info().obj_lock_enabled() &&
+      bucketref->get_info().obj_lock.has_rule()) {
+    auto iter = mp->attrs.find(RGW_ATTR_OBJECT_RETENTION);
+    if (iter == mp->attrs.end()) {
+      ceph::real_time lock_until_date =
+          bucketref->get_info().obj_lock.get_lock_until_date(
+              ceph::real_clock::now()
+          );
+      std::string mode = bucketref->get_info().obj_lock.get_mode();
+      RGWObjectRetention obj_retention(mode, lock_until_date);
+      encode(obj_retention, mp->attrs[RGW_ATTR_OBJECT_RETENTION]);
+    }
+  }
+
   // Server-side encryption: The decryptor needs a manifest to
   // identify encrypted chunks. Each MP part corresponds to a chunk.
   if (mp->attrs.find(RGW_ATTR_CRYPT_MODE) != mp->attrs.end()) {
