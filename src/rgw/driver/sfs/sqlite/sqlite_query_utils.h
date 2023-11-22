@@ -33,7 +33,7 @@ inline std::vector<Target> GetSQLiteObjects(
   auto rows = db << fmt::format("SELECT * FROM {};", table_name);
   std::vector<Target> ret;
   for (auto&& row : rows) {
-    ret.emplace_back(Target(row));
+    ret.emplace_back(Target(std::move(row)));
   }
   return ret;
 }
@@ -52,7 +52,7 @@ inline std::vector<Target> GetSQLiteObjectsWhere(
          << column_value;
   std::vector<Target> ret;
   for (auto&& row : rows) {
-    ret.emplace_back(Target(row));
+    ret.emplace_back(Target(std::move(row)));
   }
   return ret;
 }
@@ -64,13 +64,15 @@ inline std::optional<Target> GetSQLiteSingleObject(
     const std::string& key_name, const KeyType& key_value
 ) {
   auto rows =
-      db << fmt::format("SELECT * FROM {} WHERE {} = ?;", table_name, key_name)
+      db << fmt::format(
+                "SELECT * FROM {} WHERE {} = ? LIMIT 1;", table_name, key_name
+            )
          << key_value;
   std::optional<Target> ret;
-  for (auto&& row : rows) {
-    ret = Target(row);
-    break;  // looking for a single object, it should return 0 or 1 entries.
-            // TODO Return an error in there are more than 1 entry?
+  auto iter = rows.begin();
+  if (iter != rows.end()) {
+    auto&& row = *iter;
+    ret = Target(std::move(row));
   }
   return ret;
 }

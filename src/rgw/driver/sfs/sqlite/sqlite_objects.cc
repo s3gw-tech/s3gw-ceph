@@ -42,10 +42,10 @@ std::optional<DBObject> SQLiteObjects::get_object(
       << R"sql(SELECT * FROM objects WHERE bucket_id = ? AND name = ?;)sql"
       << bucket_id << object_name;
   std::optional<DBObject> ret_object;
-  for (auto&& row : rows) {
+  auto iter = rows.begin();
+  if (iter != rows.end()) {
+    auto&& row = *iter;
     ret_object = DBObject(row);
-    break;  // looking for a single object, it should return 0 or 1 entries.
-            // TODO Return an error in there are more than 1 entry?
   }
   return ret_object;
 }

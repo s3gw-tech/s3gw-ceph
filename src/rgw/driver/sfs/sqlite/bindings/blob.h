@@ -23,34 +23,23 @@
 #include "rgw/driver/sfs/sqlite/sqlite_orm.h"
 #include "rgw_common.h"
 
-namespace blob_utils {
+namespace sqlite_orm {
 
-template <typename T, typename Tuple>
-struct has_type;
-
-template <typename T>
-struct has_type<T, std::tuple<>> : std::false_type {};
-
-template <typename T, typename U, typename... Ts>
-struct has_type<T, std::tuple<U, Ts...>> : has_type<T, std::tuple<Ts...>> {};
-
-template <typename T, typename... Ts>
-struct has_type<T, std::tuple<T, Ts...>> : std::true_type {};
-
-// list of types that are stored as blobs and have the encode/decode functions
+// Add to this tuple all the types that you need to store in sqlite as a blob.
+// Those types need to have encode/decode methods based on ceph's bufferlist.
+// Also if your type has the decode/encode methods out of the ceph namespace, go
+// to conversion-utils.h and add your type to the
+// TypesDecodeIsNOTInCephNamespace tuple.
 using BlobTypes = std::tuple<
     rgw::sal::Attrs, ACLOwner, rgw_placement_rule,
     std::map<std::string, RGWAccessKey>, std::map<std::string, RGWSubUser>,
     RGWUserCaps, std::list<std::string>, std::map<int, std::string>,
     RGWQuotaInfo, std::set<std::string>, RGWBucketWebsiteConf,
     std::map<std::string, uint32_t>, RGWObjectLock, rgw_sync_policy_info>;
-}  // namespace blob_utils
-
-namespace sqlite_orm {
 
 template <typename T>
 inline constexpr bool is_sqlite_blob =
-    blob_utils::has_type<T, blob_utils::BlobTypes>::value;
+    blob_utils::has_type<T, BlobTypes>::value;
 
 template <class T>
 struct type_printer<T, typename std::enable_if<is_sqlite_blob<T>, void>::type>
@@ -97,7 +86,7 @@ struct row_extractor<
 namespace rgw::sal::sfs::dbapi::sqlite {
 template <typename T>
 struct has_sqlite_type<T, SQLITE_BLOB, void>
-    : blob_utils::has_type<T, blob_utils::BlobTypes> {};
+    : blob_utils::has_type<T, sqlite_orm::BlobTypes> {};
 
 template <class T>
 inline std::enable_if<sqlite_orm::is_sqlite_blob<T>, int>::type bind_col_in_db(

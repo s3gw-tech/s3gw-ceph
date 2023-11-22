@@ -31,10 +31,10 @@ struct DBObject {
 
   DBObject() = default;
 
-  explicit DBObject(DBObjectQueryResult values)
-      : uuid(std::get<0>(values)),
-        bucket_id(std::get<1>(values)),
-        name(std::get<2>(values)) {}
+  explicit DBObject(DBObjectQueryResult&& values)
+      : uuid(std::move(std::get<0>(values))),
+        bucket_id(std::move(std::get<1>(values))),
+        name(std::move(std::get<2>(values))) {}
 };
 
 }  // namespace rgw::sal::sfs::sqlite

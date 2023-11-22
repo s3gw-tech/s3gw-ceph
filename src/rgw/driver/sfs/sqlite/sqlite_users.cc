@@ -52,7 +52,7 @@ std::vector<std::string> SQLiteUsers::get_user_ids() const {
   auto rows = db << R"sql(SELECT user_id FROM users;)sql";
   std::vector<std::string> ret;
   for (std::tuple<std::string> row : rows) {
-    ret.emplace_back(std::get<0>(row));
+    ret.emplace_back(std::move(std::get<0>(row)));
   }
   return ret;
 }
@@ -119,12 +119,10 @@ std::optional<std::string> SQLiteUsers::_get_user_id_by_access_key(
     SELECT user_id FROM access_keys
     WHERE access_key = ?;)sql"
                  << key;
-  for (std::tuple<std::string> row : rows) {
+  auto iter = rows.begin();
+  if (iter != rows.end()) {
+    std::tuple<std::string> row = *iter;
     ret = std::get<0>(row);
-    // in case we have 2 keys that are equal in different users we return
-    // the first one.
-    // TODO Consider this an error?
-    break;
   }
   return ret;
 }

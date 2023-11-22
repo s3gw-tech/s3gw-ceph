@@ -205,12 +205,19 @@ dbapi::sqlite::database DBConn::get() {
     auto connection = storage_pool_new.at(this_thread);
     return dbapi::sqlite::database(connection);
   } catch (const std::out_of_range& ex) {
-    // using the same mutex as meanwhile code is being ported connections might
-    // be created for sqlite_orm code or sqlite_modern_cpp
-    std::unique_lock lock(storage_pool_mutex);
-    dbapi::sqlite::database db(getDBPath(cct));
-    storage_pool_new.emplace(this_thread, db.connection());
-    return db;
+    // call get_storage to open the connection the same way it was opened in
+    // the main thread.
+    get_storage();
+    std::shared_lock lock(storage_pool_mutex);
+    if (storage_pool_new.find(this_thread) == storage_pool_new.end()) {
+      // something went really really wrong.
+      throw std::system_error(
+          ENOENT, std::system_category(),
+          "Could not find a valid SQLITE connection"
+      );
+    }
+    auto connection = storage_pool_new.at(this_thread);
+    return dbapi::sqlite::database(connection);
   }
 }
 

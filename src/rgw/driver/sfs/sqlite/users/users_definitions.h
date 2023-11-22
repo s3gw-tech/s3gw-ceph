@@ -96,8 +96,8 @@ struct DBOPUserInfo {
   // sqlite_modern_cpp returns rows as a tuple.
   // This is a helper constructor for the case in which we want to get all the
   // columns and return a full object.
-  explicit DBOPUserInfo(DBUserQueryResult values) {
-    uinfo.user_id.id = std::get<0>(values);
+  explicit DBOPUserInfo(DBUserQueryResult&& values) {
+    uinfo.user_id.id = std::move(std::get<0>(values));
     assign_optional_value(std::get<1>(values), uinfo.user_id.tenant);
     assign_optional_value(std::get<2>(values), uinfo.user_id.ns);
     assign_optional_value(std::get<3>(values), uinfo.display_name);
