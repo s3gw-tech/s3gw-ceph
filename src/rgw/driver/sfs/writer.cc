@@ -328,13 +328,11 @@ int SFSAtomicWriter::complete(
       bucketref->get_info().obj_lock.has_rule()) {
     auto iter = attrs.find(RGW_ATTR_OBJECT_RETENTION);
     if (iter == attrs.end()) {
-      real_time lock_until_date =
+      ceph::real_time lock_until_date =
           bucketref->get_info().obj_lock.get_lock_until_date(now);
-      string mode = bucketref->get_info().obj_lock.get_mode();
+      std::string mode = bucketref->get_info().obj_lock.get_mode();
       RGWObjectRetention obj_retention(mode, lock_until_date);
-      bufferlist bl;
-      obj_retention.encode(bl);
-      attrs[RGW_ATTR_OBJECT_RETENTION] = bl;
+      encode(obj_retention, attrs[RGW_ATTR_OBJECT_RETENTION]);
     }
   }
 
