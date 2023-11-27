@@ -155,7 +155,7 @@ bool SQLiteList::versions(
   return true;
 }
 
-void SQLiteList::roll_up_common_prefixes(
+std::string SQLiteList::roll_up_common_prefixes(
     const std::string& find_after_prefix, const std::string& delimiter,
     const std::vector<rgw_bucket_dir_entry>& objects,
     std::map<std::string, bool>& out_common_prefixes,
@@ -163,9 +163,10 @@ void SQLiteList::roll_up_common_prefixes(
 ) const {
   const size_t find_after_pos = find_after_prefix.length();
   const size_t delim_len = delimiter.length();
+  std::string next_marker = "";
   if (delimiter.empty()) {
     out_objects = objects;
-    return;
+    return "";
   }
   const std::string* prefix{nullptr};  // Last added prefix
   for (size_t i = 0; i < objects.size(); i++) {
@@ -181,12 +182,16 @@ void SQLiteList::roll_up_common_prefixes(
         prefix = &out_common_prefixes
                       .emplace(name.substr(0, delim_pos + delim_len), true)
                       .first->first;
+        next_marker = *prefix;
         continue;
       }
     }
     // Not found -> next
     out_objects.push_back(objects[i]);
+    next_marker = objects[i].key.name;
   }
+
+  return next_marker;
 }
 
 }  // namespace rgw::sal::sfs::sqlite

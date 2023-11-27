@@ -108,6 +108,7 @@ class ListObjectsTests(unittest.TestCase):
                 self.assertTrue(common_prefix["Prefix"] in common_prefixes)
         else:
             self.assertFalse("CommonPrefixes" in list_resp)
+        self.assertFalse(list_resp["IsTruncated"])
 
 
     def test_list_objects_no_prefix(self):
@@ -259,6 +260,29 @@ class ListObjectsTests(unittest.TestCase):
             'directory/directory/'
         ]
         self.check_list_response_prefix(objs_ret, expected_objects, 'directory/', expected_common_prefixes)
+
+    def test_list_objects_with_delimiter_object_name_is_greater(self):
+        bucket_name = self.get_random_bucket_name()
+        self.s3_client.create_bucket(Bucket=bucket_name)
+        self.assert_bucket_exists(bucket_name)
+        # objects to upload
+        objects = [
+            'b/test',
+            'test',
+            'test1',
+            'test2'
+        ]
+        for obj in objects:
+            self.upload_file_and_check(bucket_name, obj)
+        # list all objects with prefix equal to 'prefix'
+        objs_ret = self.s3_client.list_objects(Bucket=bucket_name, Prefix='', Delimiter = '/')
+        expected_objects = [
+            'test', 'test1', 'test2'
+        ]
+        expected_common_prefixes = [
+            'b/'
+        ]
+        self.check_list_response_prefix(objs_ret, expected_objects, '', expected_common_prefixes)
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:

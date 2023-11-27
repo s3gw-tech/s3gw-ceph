@@ -52,7 +52,8 @@ class SQLiteList {
   // `delimiter` position.
   //
   // Copy all other `objects` to `out_objects`.
-  void roll_up_common_prefixes(
+  // Returns the next marker to be used in a subsequent call to list objects
+  std::string roll_up_common_prefixes(
       const std::string& find_after_prefix, const std::string& delimiter,
       const std::vector<rgw_bucket_dir_entry>& objects,
       std::map<std::string, bool>& out_common_prefixes,
