@@ -434,9 +434,8 @@ std::string Bucket::_add_delete_marker(
     const sqlite::SQLiteVersionedObjects& db_versioned_objs
 ) const {
   std::string delete_marker_id = generate_new_version_id(store->ceph_context());
-  bool added;
-  db_versioned_objs.add_delete_marker_transact(
-      obj.path.get_uuid(), delete_marker_id, added
+  const bool added = db_versioned_objs.add_delete_marker_transact(
+      obj.path.get_uuid(), delete_marker_id
   );
   if (added) {
     return delete_marker_id;

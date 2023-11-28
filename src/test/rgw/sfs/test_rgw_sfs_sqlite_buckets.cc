@@ -659,11 +659,9 @@ TEST_F(TestSFSSQLiteBuckets, TestBucketEmpty) {
   EXPECT_FALSE(db_buckets->bucket_empty("bucket1_id"));
 
   // add a delete marker
-  bool delete_marker_added = false;
-  db_versions->add_delete_marker_transact(
-      version1->object_id, "delete_maker_1", delete_marker_added
-  );
-  ASSERT_TRUE(delete_marker_added);
+  ASSERT_TRUE(db_versions->add_delete_marker_transact(
+      version1->object_id, "delete_maker_1"
+  ));
 
   // bucket is still not empty
   EXPECT_FALSE(db_buckets->bucket_empty("bucket1_id"));

@@ -331,13 +331,11 @@ SQLiteVersionedObjects::delete_version_and_get_previous_transact(
   }
 }
 
-uint SQLiteVersionedObjects::add_delete_marker_transact(
-    const uuid_d& object_id, const std::string& delete_marker_id, bool& added
+bool SQLiteVersionedObjects::add_delete_marker_transact(
+    const uuid_d& object_id, const std::string& delete_marker_id, uint* out_id
 ) const {
-  uint ret_id{0};
-  added = false;
-  try {
-    auto storage = conn->get_storage();
+  auto storage = conn->get_storage();
+  RetrySQLiteBusy<bool> retry([&]() {
     auto transaction = storage->transaction_guard();
     auto last_version_select = storage->get_all<DBVersionedObject>(
         where(
@@ -356,26 +354,27 @@ uint SQLiteVersionedObjects::add_delete_marker_transact(
       if ((last_version.object_state == ObjectState::COMMITTED ||
            last_version.object_state == ObjectState::OPEN) &&
           last_version.version_type == VersionType::REGULAR) {
-        auto now = ceph::real_clock::now();
+        const auto now = ceph::real_clock::now();
         last_version.version_type = VersionType::DELETE_MARKER;
         last_version.object_state = ObjectState::COMMITTED;
         last_version.commit_time = now;
         last_version.delete_time = now;
         last_version.mtime = now;
         last_version.version_id = delete_marker_id;
-        ret_id = storage->insert(last_version);
-        added = true;
+        const uint ret_id = storage->insert(last_version);
+        if (out_id) {
+          *out_id = ret_id;
+        }
         // only commit if the delete maker was indeed inserted.
         // the rest of calls in this transaction are read operations
         transaction.commit();
+        return true;
       }
     }
-  } catch (const std::system_error& e) {
-    // throw exception (will be caught later in the sfs logic)
-    // TODO revisit this when error handling is defined
-    throw(e);
-  }
-  return ret_id;
+    return false;
+  });
+  const auto result = retry.run();
+  return result.has_value() ? result.value() : false;
 }
 
 std::optional<DBVersionedObject>
