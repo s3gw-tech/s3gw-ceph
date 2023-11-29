@@ -42,7 +42,7 @@ bool SFSZone::get_redirect_endpoint(std::string* /*endpoint*/) {
 }
 
 bool SFSZone::has_zonegroup_api(const std::string& /*api*/) const {
-  return false;
+  return true;
 }
 
 const std::string& SFSZone::get_current_period_id() {
