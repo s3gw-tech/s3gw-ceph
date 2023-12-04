@@ -43,7 +43,8 @@ class SFSZoneGroup : public StoreZoneGroup {
     return !!group->placement_targets.count(target);
   }
   virtual bool is_master_zonegroup() const override {
-    return group->is_master_zonegroup();
+    // we are a master zonegroup, because we are just the one running.
+    return true;
   }
   virtual const std::string& get_api_name() const override {
     return group->api_name;
