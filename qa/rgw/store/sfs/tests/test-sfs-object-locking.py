@@ -33,6 +33,7 @@ class ObjectLockingTests(unittest.TestCase):
     BUCKET_NAME_3 = "bobjlockenabled3"
     BUCKET_NAME_4 = "bobjlockenabled4"
     BUCKET_NAME_5 = "bobjlockenabled5"
+    BUCKET_NAME_6 = "bobjlockenabled6"
 
     ObjVersions = {}
 
@@ -461,6 +462,55 @@ class ObjectLockingTests(unittest.TestCase):
         )
 
         self.assertTrue(response["ResponseMetadata"]["HTTPStatusCode"] == 204)
+
+    def test_multipart_upload_has_default_retention(self):
+        self.ensure_bucket(ObjectLockingTests.BUCKET_NAME_6, True)
+
+        self.s3_client.put_object_lock_configuration(
+            Bucket=ObjectLockingTests.BUCKET_NAME_6,
+            ObjectLockConfiguration={
+                "ObjectLockEnabled": "Enabled",
+                "Rule": {"DefaultRetention": {"Mode": "COMPLIANCE", "Years": 7}},
+            },
+        )
+
+        res = self.s3_client.create_multipart_upload(
+            Bucket=ObjectLockingTests.BUCKET_NAME_6, Key="key.1"
+        )
+
+        upload_id = res["UploadId"]
+        parts_lst = []
+        res = self.s3_client.upload_part(
+            Body="data",
+            Bucket=ObjectLockingTests.BUCKET_NAME_6,
+            Key="key.1",
+            UploadId=upload_id,
+            PartNumber=1,
+        )
+        parts_lst.append({"ETag": res["ETag"], "PartNumber": 1})
+        self.s3_client.complete_multipart_upload(
+            Bucket=ObjectLockingTests.BUCKET_NAME_6,
+            Key="key.1",
+            UploadId=upload_id,
+            MultipartUpload={"Parts": parts_lst},
+        )
+
+        response = self.s3_client.list_object_versions(
+            Bucket=ObjectLockingTests.BUCKET_NAME_6, Prefix="key.1"
+        )
+
+        for version in response["Versions"]:
+            if version["Key"] == "key.1" and version["IsLatest"] == True:
+                self.ObjVersions["key.1.6"] = version["VersionId"]
+                print(self.ObjVersions["key.1.6"])
+
+        response = self.s3_client.get_object_retention(
+            Bucket=ObjectLockingTests.BUCKET_NAME_6,
+            Key="key.1",
+            VersionId=self.ObjVersions["key.1.6"],
+        )
+
+        self.check_object_retention(response, "COMPLIANCE", 7, "Years")
 
 
 if __name__ == "__main__":
