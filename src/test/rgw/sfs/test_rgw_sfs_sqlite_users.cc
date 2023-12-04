@@ -9,7 +9,6 @@
 #include "common/ceph_context.h"
 #include "rgw/driver/sfs/sqlite/dbconn.h"
 #include "rgw/driver/sfs/sqlite/sqlite_users.h"
-#include "rgw/driver/sfs/sqlite/users/users_conversions.h"
 #include "rgw/rgw_sal_sfs.h"
 #include "rgw_sfs_utils.h"
 
@@ -318,45 +317,6 @@ TEST_F(TestSFSSQLiteUsers, AddMoreThanOneUserWithSameAccessKey) {
   ASSERT_TRUE(ret_user.has_value());
   // it will only return the first user with that access key
   compareUsers(user1, *ret_user);
-}
-
-TEST_F(TestSFSSQLiteUsers, UseStorage) {
-  auto ceph_context = std::make_shared<CephContext>(CEPH_ENTITY_TYPE_CLIENT);
-  ceph_context->_conf.set_val("rgw_sfs_data_path", getTestDir());
-  ceph_context->_log->start();
-
-  DBConnRef conn = std::make_shared<DBConn>(ceph_context.get());
-  SQLiteUsers db_users(conn);
-  auto storage = conn->get_storage();
-
-  DBUser db_user;
-  db_user.user_id = "test_storage";
-
-  // we have to use replace because the primary key of rgw_user is a string
-  storage->replace(db_user);
-
-  auto user = storage->get_pointer<DBUser>("test_storage");
-
-  ASSERT_NE(user, nullptr);
-  ASSERT_EQ(user->user_id, "test_storage");
-
-  // convert the DBUser to RGWUser (blobs are decoded here)
-  auto rgw_user = get_rgw_user(*user);
-  ASSERT_EQ(rgw_user.uinfo.user_id.id, user->user_id);
-
-  // creates a RGWUser for testing (id = test1, email = test1@test.com, etc..)
-  auto rgw_user_2 = createTestUser("1");
-
-  // convert to DBUser (blobs are encoded here)
-  auto db_user_2 = get_db_user(rgw_user_2);
-
-  // we have to use replace because the primary key of rgw_user is a string
-  storage->replace(db_user_2);
-
-  // now use the SqliteUsers method, so user is already converted
-  auto ret_user = db_users.get_user("test1");
-  ASSERT_TRUE(ret_user.has_value());
-  compareUsers(rgw_user_2, *ret_user);
 }
 
 // User management tests ------------------------------------------------------

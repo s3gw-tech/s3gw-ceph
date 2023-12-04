@@ -15,7 +15,7 @@
 
 #include "common/ceph_time.h"
 #include "include/ceph_assert.h"
-#include "rgw/driver/sfs/sqlite/dbapi.h"
+#include "rgw/driver/sfs/sqlite/dbapi_type_wrapper.h"
 #include "rgw/driver/sfs/sqlite/sqlite_orm.h"
 
 /// ceph::real_time is represented as a uint64 (unsigned).

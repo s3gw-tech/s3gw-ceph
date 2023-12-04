@@ -261,11 +261,15 @@ inline auto _make_storage(const std::string& path) {
 using Storage = decltype(_make_storage(""));
 using StorageRef = Storage*;
 
+// TODO revisit this when code is fully ported to sqlite modern cpp
+using ConnectionNewLib = std::shared_ptr<sqlite3>;
+
 // TODO(https://github.com/aquarist-labs/s3gw/issues/788): Make
 // dbapi::sqlite::database the primary interface for sqlite3.
 class DBConn {
  private:
   std::unordered_map<std::thread::id, Storage> storage_pool;
+  std::unordered_map<std::thread::id, ConnectionNewLib> storage_pool_new;
   std::vector<sqlite3*> sqlite_conns;
   const std::thread::id main_thread;
   mutable std::shared_mutex storage_pool_mutex;
@@ -290,9 +294,7 @@ class DBConn {
     return sqlite_conns;
   }
 
-  dbapi::sqlite::database get() {
-    return dbapi::sqlite::database(get_storage()->filename());
-  }
+  dbapi::sqlite::database get();
 
   static std::string getDBPath(CephContext* cct) {
     auto rgw_sfs_path = cct->_conf.get_val<std::string>("rgw_sfs_data_path");

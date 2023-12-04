@@ -20,7 +20,7 @@
 #if FMT_VERSION >= 90000
 #include <fmt/ostream.h>
 #endif
-#include "sqlite/dbapi.h"
+#include "sqlite/dbapi_type_wrapper.h"
 
 namespace rgw::sal::sfs {
 

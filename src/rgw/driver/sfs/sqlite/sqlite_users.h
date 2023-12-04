@@ -37,13 +37,9 @@ class SQLiteUsers {
   void remove_user(const std::string& userid) const;
 
  private:
-  template <class... Args>
-  std::vector<DBOPUserInfo> get_users_by(Args... args) const;
-
-  void _store_access_keys(StorageRef storage, const DBOPUserInfo& user) const;
-  void _remove_access_keys(StorageRef storage, const std::string& userid) const;
-  std::optional<std::string> _get_user_id_by_access_key(
-      StorageRef storage, const std::string& key
+  void _store_access_keys(const DBOPUserInfo& user) const;
+  void _remove_access_keys(const std::string& userid) const;
+  std::optional<std::string> _get_user_id_by_access_key(const std::string& key
   ) const;
 };
 

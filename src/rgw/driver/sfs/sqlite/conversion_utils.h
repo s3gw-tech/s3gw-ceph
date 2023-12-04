@@ -17,28 +17,37 @@
 #include "rgw_acl.h"
 #include "rgw_common.h"
 
+namespace blob_utils {
+
+template <typename T, typename Tuple>
+struct has_type;
+
+template <typename T>
+struct has_type<T, std::tuple<>> : std::false_type {};
+
+template <typename T, typename U, typename... Ts>
+struct has_type<T, std::tuple<U, Ts...>> : has_type<T, std::tuple<Ts...>> {};
+
+template <typename T, typename... Ts>
+struct has_type<T, std::tuple<T, Ts...>> : std::true_type {};
+}  // namespace blob_utils
+
 namespace rgw::sal::sfs::sqlite {
 
-/// by default type's decode function is under the ceph namespace
-template <typename T>
-struct __ceph_ns_decode : std::true_type {};
+// Normally the encode/decode methods for rgw types are found in the ceph
+// namespace. But there are a few types where that's not true.
+// This tuple lists all the types where the encode/decode methods are NOT in the
+// ceph namespace.
+// This is required to specify which call will need your type when encoding or
+// decoding it from/to a bufferlist
+using TypesDecodeIsNOTInCephNamespace = std::tuple<
+    RGWAccessControlPolicy, RGWQuotaInfo, RGWObjectLock, RGWUserCaps, ACLOwner,
+    rgw_placement_rule>;
 
+/// Returns if a type has its encode/decode methods in the ceph namespace.
 template <typename T>
-inline constexpr bool ceph_ns_decode = __ceph_ns_decode<T>::value;
-
-// specialize the ones that are not under the ceph namespace
-template <>
-struct __ceph_ns_decode<RGWAccessControlPolicy> : std::false_type {};
-template <>
-struct __ceph_ns_decode<RGWQuotaInfo> : std::false_type {};
-template <>
-struct __ceph_ns_decode<RGWObjectLock> : std::false_type {};
-template <>
-struct __ceph_ns_decode<RGWUserCaps> : std::false_type {};
-template <>
-struct __ceph_ns_decode<ACLOwner> : std::false_type {};
-template <>
-struct __ceph_ns_decode<rgw_placement_rule> : std::false_type {};
+inline constexpr bool ceph_ns_decode =
+    !blob_utils::has_type<T, TypesDecodeIsNOTInCephNamespace>::value;
 
 template <typename BLOB_HOLDER, typename DEST>
 void decode_blob(const BLOB_HOLDER& blob_holder, DEST& dest) {

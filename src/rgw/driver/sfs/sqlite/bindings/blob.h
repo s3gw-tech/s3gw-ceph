@@ -13,28 +13,33 @@
  */
 #pragma once
 
+#include <tuple>
 #include <type_traits>
 
 #include "rgw/driver/sfs/sqlite/conversion_utils.h"
+// we need to include dbapi_type_wrapper.h only because including dbapi.h
+// creates circular dependencies
+#include "rgw/driver/sfs/sqlite/dbapi_type_wrapper.h"
 #include "rgw/driver/sfs/sqlite/sqlite_orm.h"
 #include "rgw_common.h"
 
 namespace sqlite_orm {
 
-template <typename T>
-struct __is_sqlite_blob : std::false_type {};
+// Add to this tuple all the types that you need to store in sqlite as a blob.
+// Those types need to have encode/decode methods based on ceph's bufferlist.
+// Also if your type has the decode/encode methods out of the ceph namespace, go
+// to conversion-utils.h and add your type to the
+// TypesDecodeIsNOTInCephNamespace tuple.
+using BlobTypes = std::tuple<
+    rgw::sal::Attrs, ACLOwner, rgw_placement_rule,
+    std::map<std::string, RGWAccessKey>, std::map<std::string, RGWSubUser>,
+    RGWUserCaps, std::list<std::string>, std::map<int, std::string>,
+    RGWQuotaInfo, std::set<std::string>, RGWBucketWebsiteConf,
+    std::map<std::string, uint32_t>, RGWObjectLock, rgw_sync_policy_info>;
 
 template <typename T>
-inline constexpr bool is_sqlite_blob = __is_sqlite_blob<T>::value;
-
-template <>
-struct __is_sqlite_blob<rgw::sal::Attrs> : std::true_type {};
-
-template <>
-struct __is_sqlite_blob<ACLOwner> : std::true_type {};
-
-template <>
-struct __is_sqlite_blob<rgw_placement_rule> : std::true_type {};
+inline constexpr bool is_sqlite_blob =
+    blob_utils::has_type<T, BlobTypes>::value;
 
 template <class T>
 struct type_printer<T, typename std::enable_if<is_sqlite_blob<T>, void>::type>
@@ -77,3 +82,60 @@ struct row_extractor<
   }
 };
 }  // namespace sqlite_orm
+
+namespace rgw::sal::sfs::dbapi::sqlite {
+template <typename T>
+struct has_sqlite_type<T, SQLITE_BLOB, void>
+    : blob_utils::has_type<T, sqlite_orm::BlobTypes> {};
+
+template <class T>
+inline std::enable_if<sqlite_orm::is_sqlite_blob<T>, int>::type bind_col_in_db(
+    sqlite3_stmt* stmt, int inx, const T& val
+) {
+  std::vector<char> blobValue;
+  rgw::sal::sfs::sqlite::encode_blob(val, blobValue);
+  return dbapi::sqlite::bind_col_in_db(stmt, inx, blobValue);
+}
+template <class T>
+inline std::enable_if<sqlite_orm::is_sqlite_blob<T>, void>::type
+store_result_in_db(sqlite3_context* db, const T& val) {
+  std::vector<char> blobValue;
+  rgw::sal::sfs::sqlite::encode_blob(val, blobValue);
+  dbapi::sqlite::store_result_in_db(db, blobValue);
+}
+template <class T>
+inline std::enable_if<sqlite_orm::is_sqlite_blob<T>, T>::type
+get_col_from_db(sqlite3_stmt* stmt, int inx, result_type<T>) {
+  if (sqlite3_column_type(stmt, inx) == SQLITE_NULL) {
+    ceph_abort_msg("cannot make blob value from NULL");
+  }
+  auto blob_data = sqlite3_column_blob(stmt, inx);
+  auto blob_size = sqlite3_column_bytes(stmt, inx);
+  if (blob_data == nullptr || blob_size < 0) {
+    ceph_abort_msg("Invalid blob at column : (" + std::to_string(inx) + ")");
+  }
+  T ret;
+  rgw::sal::sfs::sqlite::decode_blob(
+      reinterpret_cast<const char*>(blob_data), static_cast<size_t>(blob_size),
+      ret
+  );
+  return ret;
+}
+
+template <class T>
+inline std::enable_if<sqlite_orm::is_sqlite_blob<T>, T>::type
+get_val_from_db(sqlite3_value* value, result_type<T>) {
+  if (sqlite3_value_type(value) == SQLITE_NULL) {
+    ceph_abort_msg("cannot make blob value from NULL");
+  }
+  std::vector<char> vector_value;
+  vector_value = get_val_from_db(value, result_type<std::vector<char>>());
+  T ret;
+  rgw::sal::sfs::sqlite::decode_blob(
+      reinterpret_cast<const char*>(vector_value),
+      static_cast<size_t>(vector_value.size()), ret
+  );
+  return ret;
+}
+
+}  // namespace rgw::sal::sfs::dbapi::sqlite

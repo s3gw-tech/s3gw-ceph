@@ -17,6 +17,7 @@
 #include <sqlite3.h>
 
 #include <filesystem>
+#include <memory>
 #include <system_error>
 
 #include "common/dout.h"
@@ -133,6 +134,14 @@ DBConn::DBConn(CephContext* _cct)
     // storage->on_open() called from get_storage(), which has the exclusive
     // mutex.
     sqlite_conns.emplace_back(db);
+    std::shared_ptr<sqlite3> db_connection =
+        std::shared_ptr<sqlite3>(db, [=](sqlite3*) {
+          // doing nothing for now...
+          // this is just a workaround to reuse the connection opened from
+          // sqlite_orm, the real owner of the connection is still sqlite_orm.
+          // This won't be needed after code is fully ported to new sqlite lib
+        });
+    storage_pool_new.emplace(std::this_thread::get_id(), db_connection);
 
     sqlite3_extended_result_codes(db, 1);
     sqlite3_busy_timeout(db, 10000);
@@ -186,6 +195,31 @@ StorageRef DBConn::get_storage() {
                            << storage << " to pool for thread " << std::hex
                            << this_thread << std::dec << dendl;
     return storage;
+  }
+}
+
+dbapi::sqlite::database DBConn::get() {
+  std::thread::id this_thread = std::this_thread::get_id();
+  try {
+    // using the same mutex as meanwhile code is being ported connections might
+    // be created for sqlite_orm code or sqlite_modern_cpp
+    std::shared_lock lock(storage_pool_mutex);
+    auto connection = storage_pool_new.at(this_thread);
+    return dbapi::sqlite::database(connection);
+  } catch (const std::out_of_range& ex) {
+    // call get_storage to open the connection the same way it was opened in
+    // the main thread.
+    get_storage();
+    std::shared_lock lock(storage_pool_mutex);
+    if (storage_pool_new.find(this_thread) == storage_pool_new.end()) {
+      // something went really really wrong.
+      throw std::system_error(
+          ENOENT, std::system_category(),
+          "Could not find a valid SQLITE connection"
+      );
+    }
+    auto connection = storage_pool_new.at(this_thread);
+    return dbapi::sqlite::database(connection);
   }
 }
 
