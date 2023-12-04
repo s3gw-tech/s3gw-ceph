@@ -244,7 +244,7 @@ int SFSBucket::list(
 
   if (!params.delim.empty()) {
     std::vector<rgw_bucket_dir_entry> new_results;
-    list.roll_up_common_prefixes(
+    auto next_marker = list.roll_up_common_prefixes(
         params.prefix, params.delim, results.objs, results.common_prefixes,
         new_results
     );
@@ -254,7 +254,7 @@ int SFSBucket::list(
     // anything after the prefix.
     if (!results.common_prefixes.empty()) {
       std::vector<rgw_bucket_dir_entry> objects_after;
-      std::string query = std::prev(results.common_prefixes.end())->first;
+      std::string query = next_marker;
       query.append(
           sfs::S3_MAX_OBJECT_NAME_BYTES - query.size(),
           std::numeric_limits<char>::max()
