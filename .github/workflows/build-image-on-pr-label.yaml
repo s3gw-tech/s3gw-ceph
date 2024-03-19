@@ -20,7 +20,7 @@ jobs:
       - name: Checkout s3gw
         uses: actions/checkout@v3
         with:
-          repository: aquarist-labs/s3gw
+          repository: s3gw-tech/s3gw
           path: s3gw
           submodules: false
 
@@ -29,6 +29,7 @@ jobs:
         with:
           path: s3gw/ceph
           submodules: recursive
+          fetch-depth: 0
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -56,7 +57,6 @@ jobs:
           build-args: |
             CMAKE_BUILD_TYPE=Release
             S3GW_VERSION=${{ env.IMAGE_TAG }}
-            NPROC=16
             QUAY_EXPIRATION=1w
             SRC_S3GW_DIR=s3gw
           tags: |

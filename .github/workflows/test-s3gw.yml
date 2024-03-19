@@ -25,6 +25,9 @@ jobs:
   tests:
     runs-on: self-hosted
 
+    permissions:
+      contents: write
+
     steps:
 
       - name: Checkout ceph
@@ -36,14 +39,14 @@ jobs:
       - name: Checkout s3gw
         uses: actions/checkout@v3
         with:
-          repository: aquarist-labs/s3gw
+          repository: s3gw-tech/s3gw
           path: s3gw
           submodules: false
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.11
 
       - name: Install Dependencies
         run: |
@@ -57,7 +60,6 @@ jobs:
         run: |
           docker build \
             --build-arg CMAKE_BUILD_TYPE=Debug \
-            --build-arg NPROC=16 \
             --file s3gw/Dockerfile \
             --tag s3gw-unittests:${IMAGE_TAG} \
             --target s3gw-unittests \
@@ -71,7 +73,6 @@ jobs:
         run: |
           docker build \
             --build-arg CMAKE_BUILD_TYPE=Debug \
-            --build-arg NPROC=16 \
             --build-arg SRC_S3GW_DIR=s3gw \
             --file s3gw/Dockerfile \
             --tag s3gw:${IMAGE_TAG} \
@@ -132,7 +133,7 @@ jobs:
             -v /run/docker.sock:/run/docker.sock \
             -v ${GITHUB_WORKSPACE}/s3tr-out:/out \
             --pull=always \
-            ghcr.io/aquarist-labs/s3tr:latest \
+            ghcr.io/s3gw-tech/s3tr:latest \
             run \
             --image s3gw:${IMAGE_TAG} \
             --docker-api unix:///run/docker.sock \
@@ -152,7 +153,7 @@ jobs:
           docker run --rm \
             -v ${GITHUB_WORKSPACE}/s3tr-out:/out \
             -v ${GITHUB_WORKSPACE}/ceph:/ceph:ro \
-            ghcr.io/aquarist-labs/s3tr:latest \
+            ghcr.io/s3gw-tech/s3tr:latest \
             analyze summary \
               /out/s3tr.json \
               /ceph/qa/rgw/store/sfs/tests/fixtures/s3tr_excuses.csv

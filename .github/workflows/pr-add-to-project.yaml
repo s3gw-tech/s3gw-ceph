@@ -14,6 +14,6 @@ jobs:
     steps:
       - uses: jecluis/custom-project-status@v1.1.0
         with:
-          project-url: https://github.com/orgs/aquarist-labs/projects/5
+          project-url: https://github.com/orgs/s3gw-tech/projects/1
           gh-token: ${{ secrets.PAT_S3GW_PROJECT_ADD }}
           default-pr-status: "In review"
