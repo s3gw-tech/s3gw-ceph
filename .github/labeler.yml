@@ -241,6 +241,10 @@ rgw:
   - src/test/rgw/**
   - src/test/test_rgw*
 
+sfs:
+  - src/rgw/driver/sfs/**
+  - qa/rgw/store/sfs/**
+
 ceph-volume:
   - src/ceph-volume/**
   - doc/ceph-volume/**
